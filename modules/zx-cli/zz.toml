@@ -1,0 +1,14 @@
+[project]
+version = "0.1.0"
+name = "zx-cli"
+cincludes = []
+cobjects = []
+pkgconfig = []
+cflags = []
+lflags = []
+
+[variants]
+default = []
+
+[dependencies]
+zx = "0.1.0"
