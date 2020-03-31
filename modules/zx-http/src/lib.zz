@@ -1,6 +1,7 @@
 export using request::{
   RequestOptions,
   request,
+  get,
 }
 
 export using response::{

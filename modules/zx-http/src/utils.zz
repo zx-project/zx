@@ -1,4 +1,4 @@
-using <string.h>::{ memcpy }
+using <string.h>::{ memcpy, memset }
 
 export inline fn copy(void mut * mut dst, void *src, usize size)
   model safe(dst)
@@ -7,6 +7,13 @@ export inline fn copy(void mut * mut dst, void *src, usize size)
   static_attest(safe(dst));
   static_attest(safe(src));
   memcpy(dst, src, size);
+}
+
+export inline fn zero(void mut * mut dst, usize length)
+  model safe(dst)
+{
+  static_attest(safe(dst));
+  memset(dst, 0, length);
 }
 
 export inline fn max(u32 x, u32 y) -> u32 {

@@ -18,8 +18,8 @@ export struct Request {
   Response *response;
 }
 
-export fn request(Response+length new mut *self, char *url, RequestOptions options)
-  where nullterm(url)
+export fn request(Response+length new mut *self, RequestOptions options)
+  where nullterm(options.url)
   where options.method > 0
   where length > 0
 {
@@ -27,7 +27,7 @@ export fn request(Response+length new mut *self, char *url, RequestOptions optio
   static_assert(options.method > 0);
 
   new internal = response::internal(self);
-  new opts = normalize_options(url, options);
+  new opts = normalize_options(options);
   new req = initialize_request(self);
   new ctx = curl::easy::init();
 
@@ -36,23 +36,35 @@ export fn request(Response+length new mut *self, char *url, RequestOptions optio
   self->length = length;
   self->ctx = ctx;
 
-
   ctx.perform();
 }
 
-fn normalize_options(RequestOptions mut new *self, char *url, RequestOptions options)
-  //where safe(options.url) || safe(url)
+export fn get(Response+length new mut *self, RequestOptions options)
+  model 0 == options.method
 {
+  static_attest(length > 0);
+  static_attest(nullterm(options.url));
+  static_attest(0 == options.method);
+
+  request(self, RequestOptions {
+    method: method::GET,
+    url: options.url
+  })
+}
+
+fn normalize_options(RequestOptions mut new *self, RequestOptions options)
+  model safe(options.url)
+  model nullterm(options.url)
+{
+  static_attest(safe(options.url));
+  static_attest(nullterm(options.url));
+
   utils::copy(self, &options, sizeof(RequestOptions));
 
   if (0 == self->method) {
     if (0 == self->custom_method) {
       self->method = method::GET;
     }
-  }
-
-  if (0 == options.url) {
-    self->url = url;
   }
 }
 
