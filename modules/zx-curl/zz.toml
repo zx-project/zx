@@ -1,14 +1,13 @@
 [project]
 version = "0.1.0"
-name = "zx_cli"
+name = "zx_curl"
 cincludes = []
 cobjects = []
 pkgconfig = []
 cflags = []
-lflags = []
+lflags = [ "-lcurl" ]
 
 [variants]
 default = []
 
 [dependencies]
-zx = "0.1.0"

@@ -1,0 +1,19 @@
+export const u8 GET = 1;
+export const u8 POST = 2;
+export const u8 PUT = 3;
+export const u8 DELETE = 4;
+export const u8 HEAD = 5;
+export const u8 PATCH = 6;
+export const u8 OPTIONS = 7;
+
+export fn string(u8 method) -> char * {
+  switch method {
+    GET => { return "GET"; }
+    POST => { return "POST"; }
+    DELETE => { return "DELETE"; }
+    HEAD => { return "HEAD"; }
+    PATCH => { return "PATCH"; }
+    OPTIONS => { return "OPTIONS"; }
+    default => { return ""; }
+  }
+}

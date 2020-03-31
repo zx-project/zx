@@ -1,0 +1,93 @@
+using zx_curl::prototype::{ Prototype }
+using zx_curl::options as options;
+using <stdint.h>::{ size_t }
+
+fn main() -> int {
+  let mut proto = Prototype {
+    cleanup: cleanup,
+    escape: escape,
+    perform: perform,
+    recv: recv,
+    reset: reset,
+    send: send,
+    setopt: setopt,
+    unescape: unescape,
+  };
+
+  proto.cleanup(&proto);
+  proto.escape(&proto, "hello", 5);
+  proto.perform(&proto);
+
+  {
+    size_t mut bytes_read = 0;
+    u8 mut buf[4];
+    proto.recv(&proto, buf, 4, &bytes_read);
+  }
+
+  proto.reset(&proto);
+
+  {
+    size_t mut bytes_sent = 0;
+    u8 buf[4];
+    proto.send(&proto, buf, 4, &bytes_sent);
+  }
+
+  proto.setopt(&proto, options::URL, "http://localhost");
+
+  {
+    int mut out_length = 0;
+    proto.unescape(&proto, "hello%20world", 13, &out_length);
+  }
+
+  return 0;
+}
+
+fn cleanup(void mut *handle) {
+}
+
+fn escape(void mut *handle, char *string, int length) -> char * {
+  return 0;
+}
+
+fn perform(void mut *handle) -> u8 {
+  return 0;
+}
+
+fn recv(
+  void mut *handle,
+  void mut *buffer,
+  size_t buffer_length,
+  size_t mut *bytes_read
+) -> u8 {
+  return 0;
+}
+
+fn reset(void mut *handle) -> u8 {
+  return 0;
+}
+
+fn send(
+  void mut *handle,
+  void *buffer,
+  size_t buffer_length,
+  size_t mut *bytes_sent
+) -> u8 {
+  return 0;
+}
+
+fn setopt(
+  void mut *handle,
+  u32 opt,
+  void *parameter
+) -> u8 {
+  return 0;
+}
+
+fn unescape(
+  void mut *handle,
+  char *string,
+  int length,
+  int mut *out_length
+) -> char * {
+  return 0;
+}

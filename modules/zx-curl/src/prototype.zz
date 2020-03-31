@@ -1,0 +1,93 @@
+using <stdint.h>::{ size_t }
+
+/**
+ * A function type definition mapping the function signature
+ * of `curl_*_cleanup(void *)` functions.
+ */
+export fntype CleanupFunction(
+  void mut *handle
+) -> void;
+
+/**
+ * A function type definition mapping the function signature
+ * of `curl_*_escape(void *)` functions.
+ */
+export fntype EscapeFunction(
+  void mut *handle,
+  char *string,
+  int length
+) -> char *;
+
+/**
+ * A function type definition mapping the function signature of
+ * the `curl_*_perform(void *)` function.
+ */
+export fntype PerformFunction(
+  void mut *handle
+) -> u8;
+
+/**
+ * A function type definition mapping the function signature of
+ * the `curl_easy_recv()` function.
+ */
+export fntype RecvFunction(
+  void mut *handle,
+  void mut *buffer,
+  size_t buffer_length,
+  size_t mut *bytes_read
+) -> u8;
+
+/**
+ * A function type definition mapping the function signature of
+ * the `curl_*_reset(void *)` function.
+ */
+export fntype ResetFunction(
+  void mut *handle
+) -> u8;
+
+/**
+ * A function type definition mapping the function signature of
+ * the `curl_easy_send()` function.
+ */
+export fntype SendFunction(
+  void mut *handle,
+  void *buffer,
+  size_t buffer_length,
+  size_t mut *bytes_sent
+) -> u8;
+
+/**
+ * A function type definition mapping the function signature of
+ * `curl_*_setopt(void *, u32, void*)` functions.
+ */
+export fntype SetOptFunction(
+  void mut *handle,
+  u32 opt,
+  void *parameter
+) -> u8;
+
+/**
+ * A function type definition mapping the function signature
+ * of `curl_*_unescape(void *)` functions.
+ */
+export fntype UnescapeFunction(
+  void mut *handle,
+  char *string,
+  int length,
+  int mut *out_length
+) -> char *;
+
+/**
+ * A struct to contain function implementations for various functions
+ * on the `Context` struct.
+ */
+export struct Prototype {
+  CleanupFunction cleanup;
+  EscapeFunction escape;
+  PerformFunction perform;
+  RecvFunction recv;
+  ResetFunction reset;
+  SendFunction send;
+  SetOptFunction setopt;
+  UnescapeFunction unescape;
+}

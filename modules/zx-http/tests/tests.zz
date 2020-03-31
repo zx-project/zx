@@ -1,0 +1,16 @@
+using <stdio.h>::{ printf }
+
+using zx_http::{ RequestOptions, request }
+using zx_http as http
+
+fn main() -> int {
+  new+10 res = request("https://google.com", RequestOptions {
+    method: http::GET
+  });
+
+  printf("%s\n", res.data);
+
+  res.destroy();
+
+  return 0;
+}

@@ -1,0 +1,58 @@
+using zx_curl::{ Context as CURLContext }
+using zx_curl as curl
+
+using request::{ Request }
+using utils
+
+export struct Response+ {
+  CURLContext ctx;
+  Request *request;
+  u8 status;
+  bool ok;
+  usize length;
+  u8 data[];
+}
+
+export struct InternalResponse {
+  CURLContext ctx;
+  usize length;
+  u8 mut *data;
+  void *response;
+  ResponseReadState mut state;
+}
+
+export struct ResponseReadState {
+  usize size;
+}
+
+export fn destroy(Response+length mut *self) {
+  self->ctx.cleanup();
+}
+
+export fn internal(InternalResponse new mut *self, Response+length *response) {
+  self->response = response;
+  self->length = length;
+  self->ctx = response->ctx;
+  self->data = (u8 mut *) response->data;
+}
+
+export fn callback(void *data, usize size, usize chunks, void *ptr) -> usize
+  model safe(ptr)
+{
+  let mut res = (InternalResponse *) ptr;
+  let mut state = (ResponseReadState mut *) &res->state;
+  let byte_length = (usize) utils::min(res->length, size * chunks);
+
+  static_attest(safe(res->data));
+  static_attest(len(res->data) > 0);
+  static_attest(len(res->data) > state->size);
+  static_attest(len(res->data) > byte_length);
+
+  if byte_length > 0 {
+    // read respone data into the internal response data pointer
+    utils::copy(res->data + state->size, data, byte_length);
+    state->size += byte_length;
+  }
+
+  return byte_length;
+}

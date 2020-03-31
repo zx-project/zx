@@ -1,15 +1,18 @@
 ZZ ?= $(shell which zz)
+CWD ?= $(shell pwd)
+
+export ZZ_MODULE_PATHS += ":$(CWD)/.."
 
 default: build
 
 build:
-	$(ZZ) build
+	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) build
 
 clean:
-	$(ZZ) clean
+	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) clean
 
 test:
-	$(ZZ) test
+	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) test
 
 bench:
-	$(ZZ) bench
+	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) bench

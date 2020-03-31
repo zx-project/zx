@@ -1,0 +1,215 @@
+using <curl/curl.h> as libcurl
+using <string.h>::{ memcpy }
+using <stdint.h>::{ size_t }
+
+using prototype::{ Prototype }
+
+/**
+ * An enumeration of context types useful for indicating which
+ * `curl_*' API is in use. Custom, or user APIs should user the `USER`
+ * value.
+ */
+export enum Type {
+  Easy = 1,
+  Shared = 2,
+  Multi = 3,
+  User = 15
+}
+
+/**
+ * A struct to contain opaque CURL pointers and an implementation
+ * prototype for various functionality performed on `Context` instances.
+ *
+ * @TODO(jwerle): Handle easy and shared contexts when `BUILDING_LIBCURL`
+ * or `CURL_STRICTER` macros are defined for `libcurl'.
+
+ * @example
+ *   let mut context = Context {
+ *     type: context::Type::EASY,
+ *     handle: curl_easy_init(),
+ *     prototype: Prototype {
+ *       cleanup: curl_easy_cleanup(),
+ *       perform: curl_easy_perform(),
+ *       setopt: curl_easy_setopt(),
+ *     }
+ *   };
+ */
+export struct Context {
+  Type type;
+  void mut * mut unsafe handle;
+  u8 status;
+  Prototype prototype;
+}
+
+/**
+ * Initializes a new `Context` with a CURL handle and a
+ * `Prototype` with implementation functions.
+ * @constructor
+ * @example
+ *   void mut *req = curl_easy_init(); // libcurl
+ *   new context = curl::context:create(req, curl::context::EASY, Prototype {
+ *     ... // prototype functions
+ *   });
+ */
+export fn create(
+  Context new mut *self,
+  Type type,
+  void mut *handle,
+  Prototype prototype
+)
+  model safe(handle)
+{
+  static_attest(safe(handle));
+  self->type = type;
+  self->handle = handle;
+  // copy given prototype memory to context prototype memory
+  memcpy(&self->prototype, &prototype, sizeof(Prototype));
+}
+
+/**
+ * Cleans up the context. Calls `prototype.cleanup()`. This function will
+ * likely call one of the `curl_*_cleanup()` variants.
+ * @example
+ *   // TODO
+ */
+export fn cleanup(Context mut *self)
+  model safe(self->prototype.cleanup)
+{
+  static_attest(safe(self->prototype.cleanup));
+  self->prototype.cleanup(self->handle);
+  self->handle = 0;
+}
+
+/**
+ * Returns an error string for the context if one occurred. This
+ * function will call `curl_*_strerror()` internally based on the context
+ * type.
+ * @example
+ *   if (curl::OK != context.status) {
+ *     fprintf(stderr, "error: %s", context.error_string();
+ *   }
+ */
+export fn error_string(Context mut *self) -> char * {
+  switch self->type {
+    Type::Multi => { return libcurl::curl_multi_strerror(self->status); }
+    Type::Easy => { return libcurl::curl_easy_strerror(self->status); }
+    default => { return 0; }
+  }
+}
+
+/**
+ * Escapes and returns a string in the context. Calls `prototype.escape()`.
+ * This function will likely call one of the `curl_*_escape()` variants.
+ * @example
+ *   // TODO
+ */
+export fn escape(Context mut *self, char *string, int length) -> char *
+  model safe(self->prototype.escape)
+{
+  static_attest(safe(self->prototype.escape));
+  return self->prototype.escape(self->handle, string, length);
+}
+
+/**
+ * Performs the CURL action. Calls `prototype.perform()`.
+ * This function will likely call one of the `curl_*_perform()`
+ * function variants.
+ * @example
+ *   // TODO
+ */
+export fn perform(Context mut *self) -> u8
+  model safe(self->prototype.perform)
+{
+  static_attest(safe(self->prototype.perform));
+  self->status = self->prototype.perform(self->handle);
+  return self->status;
+}
+
+/**
+ * Receives data from the CURL connection. Calls `prototype.recv()`.
+ * This function will likely call `curl_easy_recv()`.
+ * @example
+ *   // TODO
+ */
+export fn recv(
+  Context mut *self,
+  void mut *buffer,
+  size_t mut buffer_length,
+  size_t mut *bytes_read
+) -> u8
+  model safe(self->prototype.perform)
+  model safe(bytes_read)
+{
+  static_attest(safe(self->prototype.perform));
+  static_attest(safe(bytes_read));
+  unsafe {
+    self->status = self->prototype.recv(
+      self->handle,
+      buffer,
+      buffer_length,
+      bytes_read);
+  }
+
+  return self->status;
+}
+
+/**
+ * Sends data to the CURL connection. Calls `prototype.send()`.
+ * This function will likely call `curl_easy_send()`.
+ * @example
+ *   // TODO
+ */
+export fn send(
+  Context mut *self,
+  void mut *buffer,
+  size_t mut buffer_length,
+  size_t mut *bytes_sent
+) -> u8
+  model safe(self->prototype.perform)
+  model safe(bytes_sent)
+{
+  static_attest(safe(self->prototype.perform));
+  static_attest(safe(bytes_sent));
+  unsafe {
+    self->status = self->prototype.send(
+      self->handle,
+      buffer,
+      buffer_length,
+      bytes_sent);
+  }
+
+  return self->status;
+}
+
+/**
+ * Resets CURL handle state. Calls `prototype.reset()`.
+ * This function will likely call one of the `curl_*_reset()`
+ * function variants.
+ * @example
+ *   // TODO
+ */
+export fn reset(Context mut *self)
+  model safe(self->prototype.reset)
+{
+  static_attest(safe(self->prototype.reset));
+  self->prototype.reset(self->handle);
+}
+
+/**
+ * Sets a CURL option parameter. Calls `prototype.setopt()`.
+ * This function will likely call one of the `curl_*_setopt()`
+ * function variants.
+ * @example
+ *   // TODO
+ */
+export fn setopt(
+  Context mut *self,
+  u32 opt,
+  void * unsafe parameter
+) -> u8
+  model safe(self->prototype.setopt)
+{
+  static_attest(safe(self->prototype.setopt));
+  self->status = self->prototype.setopt(self->handle, opt, parameter);
+  return self->status;
+}

@@ -1,0 +1,20 @@
+using <string.h>::{ memcpy }
+
+export inline fn copy(void mut * mut dst, void *src, usize size)
+  model safe(dst)
+  model safe(src)
+{
+  static_attest(safe(dst));
+  static_attest(safe(src));
+  memcpy(dst, src, size);
+}
+
+export inline fn max(u32 x, u32 y) -> u32 {
+  if x > y { return x; }
+  else { return y; }
+}
+
+export inline fn min(u32 x, u32 y) -> u32 {
+  if x < y { return x; }
+  else { return y; }
+}

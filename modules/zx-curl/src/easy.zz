@@ -1,0 +1,115 @@
+using <curl/curl.h> as libcurl
+using <stdint.h>::{ size_t }
+
+using context;
+using context::{ Context, create }
+using prototype::{ Prototype }
+
+/**
+ * Initializes a new "easy" CURL context.
+ * @constructor
+ * @example
+ *   new request = curl::easy::init();
+ */
+export fn init(Context new mut *self) {
+  let mut *handle = curl_easy_init();
+  static_attest(safe(handle));
+  create(self, context::Type::Easy, handle, Prototype {
+    cleanup: curl_easy_cleanup,
+    escape: curl_easy_escape,
+    perform: curl_easy_perform,
+    setopt: curl_easy_setopt,
+    recv: curl_easy_recv,
+    send: curl_easy_send,
+  });
+}
+
+/**
+ * libcurl `curl_easy_init()` forward function.
+ */
+fn curl_easy_init() -> void mut * {
+  return libcurl::curl_easy_init();
+}
+
+/**
+ * libcurl `curl_easy_cleanup()` forward function.
+ */
+fn curl_easy_cleanup(void mut *handle) {
+  libcurl::curl_easy_cleanup(handle);
+}
+
+/**
+ * libcurl `curl_easy_escape()` forward function.
+ */
+fn curl_easy_escape(void mut *handle, char *string, int length) -> char * {
+  return libcurl::curl_easy_escape(handle, string, length);
+}
+
+/**
+ * libcurl `curl_easy_perform()` forward function.
+ */
+fn curl_easy_perform(void mut *handle) -> u8 {
+  return (u8) libcurl::curl_easy_perform(handle);
+}
+
+/**
+ * libcurl `curl_easy_reset()` forward function.
+ */
+fn curl_easy_reset(void mut *handle) {
+  libcurl::curl_easy_reset(handle);
+}
+
+/**
+ * libcurl `curl_easy_recv()` forward function.
+ */
+fn curl_easy_recv(
+  void mut *handle,
+  void mut *buffer,
+  size_t mut buffer_length,
+  size_t mut *bytes_read
+) -> u8 {
+  return (u8) libcurl::curl_easy_recv(
+    handle,
+    buffer,
+    buffer_length,
+    bytes_read);
+}
+
+/**
+ * libcurl `curl_easy_send()` forward function.
+ */
+fn curl_easy_send(
+  void mut *handle,
+  void *buffer,
+  size_t mut buffer_length,
+  size_t mut *bytes_sent
+) -> u8 {
+  return (u8) libcurl::curl_easy_send(
+    handle,
+    buffer,
+    buffer_length,
+    bytes_sent);
+}
+
+/**
+ * libcurl `curl_easy_setopt()` forward function.
+ */
+fn curl_easy_setopt(
+  void mut *handle,
+  u32 opt,
+  void *parameter
+) -> u8 {
+  return (u8) libcurl::curl_easy_setopt(handle, opt, parameter);
+}
+
+/**
+ * libcurl `curl_easy_unescape()` forward function.
+ */
+fn curl_easy_unescape(
+  void mut *handle,
+  char *string,
+  int length,
+  int mut *out_length
+) -> char * {
+  return libcurl::curl_easy_unescape(handle, string, length, out_length);
+}

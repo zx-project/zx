@@ -1,7 +1,7 @@
 [project]
 version = "0.1.0"
-name = "zx_cli"
-cincludes = []
+name = "zx_http"
+cincludes = ["-pthread"]
 cobjects = []
 pkgconfig = []
 cflags = []
@@ -11,4 +11,4 @@ lflags = []
 default = []
 
 [dependencies]
-zx = "0.1.0"
+zx-curl = "*"
