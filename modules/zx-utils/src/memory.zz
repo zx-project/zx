@@ -44,6 +44,7 @@ export fn duplicate(void *src, usize size) -> void * {
   return copy((void mut *) alloc(size), src, size);
 }
 
-export inline fn nonzero(void *ptr) -> bool {
+export fn nonzero(void mut *ptr) -> bool
+{
   return 0 != ptr;
 }

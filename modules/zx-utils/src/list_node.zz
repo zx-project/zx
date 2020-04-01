@@ -5,11 +5,30 @@ using memory
 
 export struct Node {
   void *value;
-  List *list;
+  List mut *list;
   Node mut *prev;
   Node mut *next;
   bool alloc;
   native::list_node_t mut *internal;
+}
+
+export fn init(Node new mut *self, void *value) -> Node mut *
+  model safe(value)
+  model safe(return)
+{
+  let internal = (native::list_node_t mut *) native::list_node_new(self);
+
+  static_attest(safe(self));
+  static_attest(safe(value));
+  static_attest(safe(internal));
+
+  self->deref();
+  self->prev = 0;
+  self->next = 0;
+  self->value = value;
+  self->internal = internal;
+
+  return self;
 }
 
 export fn alloc() -> Node mut *
@@ -22,39 +41,60 @@ export fn alloc() -> Node mut *
   return node;
 }
 
-export fn init(Node new mut *self, void *value)
-  model safe(value)
-{
-  let internal = (native::list_node_t mut *) native::list_node_new(self);
-  static_attest(safe(value));
-  static_attest(safe(internal));
-
-  self->deref();
-  self->value = value;
-  self->internal = internal;
-}
-
 export fn create(void *value) -> Node mut *
   model safe(value)
   model safe(return)
 {
-  let mut node = alloc();
-  init(node, value);
-  return node;
+  return init(alloc(), value);
 }
 
 export fn destroy(Node mut *self) {
-  if 0 != self->internal {
-    static_attest(safe(self->internal));
-    if 0 != self->list {
-      static_attest(safe(self->list));
-      native::list_remove(self->list->internal, self->internal);
+  let mut list = self->list;
+  let mut internal = self->internal;
+
+  self->deref();
+
+  if 0 != internal {
+    static_attest(safe(internal));
+    if 0 != list {
+      static_attest(safe(list));
+      if 0 != list->internal {
+        static_attest(safe(list->internal));
+        native::list_remove(list->internal, internal);
+      } else {
+        // @TODO(jwerle): use `prototype.free()`
+        memory::free(internal);
+      }
     } else {
-      memory::free(self->internal);
+      // built in free if in orphaned context
+      memory::free(internal);
     }
   }
 
-  memory::free(self);
+  if self->alloc {
+    // @TODO(jwerle): use `prototype.free()`
+    memory::free(self);
+  }
+}
+
+export fn sync(Node mut *self) {
+  self->next = 0;
+  self->prev = 0;
+
+  if 0 != self->internal {
+    static_attest(safe(self->internal));
+    unsafe {
+      if 0 != self->internal->prev {
+        self->prev = self->internal->prev->val;
+        self->prev->next = self;
+      }
+
+      if 0 != self->internal->next {
+        self->next = self->internal->next->val;
+        self->next->prev = self;
+      }
+    }
+  }
 }
 
 export fn deref(Node mut *self) -> Node mut * {

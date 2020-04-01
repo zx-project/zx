@@ -64,16 +64,20 @@ export fn create(List mut*list, Direction direction) -> Iterator mut *
 
 export fn next(Iterator mut *self) -> Node mut * {
   static_attest(safe(self->internal));
-  native::list_node_t mut *item = native::list_iterator_next(self->internal);
+  native::list_node_t *item = native::list_iterator_next(self->internal);
+
+  unsafe {
+    if 0 == self->internal->next {
+      self->ended = true;
+    }
+  }
+
   static_attest(safe(item));
   if 0 != item {
-    unsafe {
-      return item->val;
-    }
-  } else {
-    self->ended = true;
-    return 0;
+    unsafe { return item->val; }
   }
+
+  return 0;
 }
 
 export fn destroy(Iterator mut *self) {

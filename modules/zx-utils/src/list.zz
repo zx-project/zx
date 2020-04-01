@@ -11,18 +11,18 @@ using memory
 export const usize MAX_MANAGED_ITERATORS = 256;
 
 export fntype FreeFunction(void mut *ptr) -> void;
-export fntype MatchFunction(void *a, void *b) -> bool;
+export fntype CompareFunction(void *a, void *b) -> bool;
 
 export struct ListPrototype {
   FreeFunction free;
-  MatchFunction match;
+  CompareFunction compare;
 }
 
 export struct List {
   ListPrototype prototype;
-  Node *head;
-  Node *tail;
-  u8 length;
+  Node mut *head;
+  Node mut *tail;
+  usize length;
   Iterator mut *iterators[MAX_MANAGED_ITERATORS];
   bool alloc;
   native::list_t mut *internal;
@@ -56,9 +56,8 @@ export fn create() -> List mut *
   return list;
 }
 
-export fn destroy(List mut *self)
-{
-  let mut it = self->iterator(list_iterator::Direction::Head);
+export fn destroy(List mut *self) {
+  let mut it = self->iterator();
 
   static_attest(safe(it));
 
@@ -82,6 +81,7 @@ export fn destroy(List mut *self)
   native::list_destroy(self->internal);
 
   if self->alloc {
+    // @TODO(jwerle): use `prototype.free()`
     memory::free(self);
   } else {
     memory::zero(self, sizeof(List));
@@ -102,33 +102,27 @@ fn sync(List mut *self) {
   }
 }
 
-export fn iterator(List mut *self, Direction direction) -> Iterator mut *
+export fn iterator(List mut *self) -> Iterator mut *
   model safe(return)
 {
-  return list_iterator::create(self, direction);
+  return list_iterator::create(self, list_iterator::Direction::Head);
+}
+
+export fn iterator_tail(List mut *self) -> Iterator mut *
+  model safe(return)
+{
+  return list_iterator::create(self, list_iterator::Direction::Tail);
 }
 
 export fn rpush(List mut *self, void *value) -> Node mut * {
   let mut node = create_node(self, value);
-  let internal = node->internal;
 
   static_attest(safe(node));
   static_attest(safe(node->internal));
 
   native::list_rpush(self->internal, node->internal);
 
-  if memory::nonzero(internal) {
-    unsafe {
-      if 0 != internal->prev {
-        node->prev = internal->prev->val;
-      }
-
-      if 0 != internal->next {
-        node->next = internal->next->val;
-      }
-    }
-  }
-
+  node->sync();
   self->sync();
 
   return node;
@@ -136,23 +130,13 @@ export fn rpush(List mut *self, void *value) -> Node mut * {
 
 export fn lpush(List mut *self, void *value) -> Node mut * {
   let mut node = create_node(self, value);
-  let internal = node->internal;
 
   static_attest(safe(node));
   static_attest(safe(node->internal));
 
   native::list_lpush(self->internal, node->internal);
 
-  unsafe {
-    if 0 != internal->prev {
-      node->prev = internal->prev->val;
-    }
-
-    if 0 != internal->next {
-      node->next = internal->next->val;
-    }
-  }
-
+  node->sync();
   self->sync();
 
   return node;
@@ -165,7 +149,9 @@ export fn rpop(List mut *self) -> Node mut * {
   self->sync();
 
   if 0 != entry {
-    unsafe { return deref(entry->val); }
+    unsafe {
+      return deref(entry->val);
+    }
   }
 
   return 0;
@@ -177,25 +163,50 @@ export fn lpop(List mut *self) -> Node mut * {
   self->sync();
 
   if 0 != entry {
-    static_attest(safe(entry));
-    unsafe { return deref(entry->val); }
+    unsafe {
+      return deref(entry->val);
+    }
   }
 
   return 0;
 }
 
-export fn find(List *self, void *value) -> Node mut * {
-  native::list_node_t *entry = native::list_find(self->internal, (void mut *) value);
+export fn find(List mut *self, void *value) -> Node mut * {
+  let mut head = self->iterator();
+  let mut tail = self->iterator_tail();
 
-  if 0 != entry {
-    static_attest(safe(entry));
-    unsafe { return entry->val; }
+  // @TODO(jwerle): use self->prototype.compare
+
+  while !head->ended && !tail->ended {
+    let left = head->next();
+    let right = tail->next();
+
+    if 0 != left {
+      static_attest(safe(left));
+      if value == left->value {
+        head->destroy();
+        tail->destroy();
+        return left;
+      }
+    }
+
+    if 0 != right {
+      static_attest(safe(right));
+      if value == right->value {
+        head->destroy();
+        tail->destroy();
+        return right;
+      }
+    }
   }
+
+  head->destroy();
+  tail->destroy();
 
   return 0;
 }
 
-export fn at(List *self, usize index) -> Node mut * {
+export fn at(List mut *self, usize index) -> Node mut * {
   native::list_node_t *entry = native::list_at(self->internal, (int) index);
 
   if 0 != entry {
@@ -209,17 +220,12 @@ export fn at(List *self, usize index) -> Node mut * {
 export fn remove(List mut *self, void *value)
   where safe(value)
 {
-  let mut it = self->iterator(list_iterator::Direction::Head);
-  static_attest(safe(it));
+  let mut node = self->find(value);
 
-  while !it->ended {
-    let node = it->next();
-    if 0 != node {
-      static_attest(safe(node));
-      if value == node->value {
-        node->destroy();
-      }
-    }
+  if 0 != node {
+    static_attest(safe(node));
+
+    node->destroy();
   }
 
   self->sync();

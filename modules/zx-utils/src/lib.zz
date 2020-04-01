@@ -1,11 +1,6 @@
 export using list
 export using list::{ List }
-export using list_node
 export using list_node::{ Node as ListNode }
-export using list_iterator
-export using list_iterator::{
-  Iterator as ListIterator,
-  Direction as ListIteratorDirection
-}
+export using list_iterator::{ Iterator as ListIterator }
 export using math
 export using memory
