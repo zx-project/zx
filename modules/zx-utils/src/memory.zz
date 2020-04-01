@@ -1,0 +1,49 @@
+using <string.h>::{ memcpy, memset }
+using <stdlib.h> as stdlib
+
+export fn copy(void mut * mut dst, void *src, usize size) -> void *
+  model safe(dst)
+  model safe(src)
+  model safe(return)
+{
+  static_attest(safe(dst));
+  static_attest(safe(src));
+  dst = memcpy(dst, src, size);
+  static_attest(safe(dst));
+  return dst;
+}
+
+export fn zero(void mut * mut dst, usize length) -> void *
+  model safe(dst)
+  model safe(return)
+{
+  static_attest(safe(dst));
+  dst = memset(dst, 0, length);
+  static_attest(safe(dst));
+  return dst;
+}
+
+export fn alloc(usize length) -> void *
+  model safe(return)
+{
+  void mut *ptr = stdlib::malloc(length);
+  static_attest(safe(ptr));
+  zero(ptr, length);
+  static_attest(safe(ptr));
+  return ptr;
+}
+
+export fn free(void mut *ptr)
+  model safe(ptr)
+{
+  static_attest(safe(ptr));
+  stdlib::free(ptr);
+}
+
+export fn duplicate(void *src, usize size) -> void * {
+  return copy((void mut *) alloc(size), src, size);
+}
+
+export inline fn nonzero(void *ptr) -> bool {
+  return 0 != ptr;
+}

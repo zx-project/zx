@@ -1,22 +1,19 @@
 using <stdlib.h>::{ free }
 using <stdio.h>::{ printf }
 
-using zx_http::{ RequestOptions }
+using zx_http::{ RequestOptions, Response }
 using zx_http as http
 
-fn log(http::Response+length *res) {
-  let mut string = res->to_cstr();
-  printf("%s\n", string);
+fn log(Response+length mut *self) {
+  let mut string = self->to_cstr();
+  printf("%s", string);
   free(string);
 }
 
 fn main() -> int {
-  new+4096 res = http::get(RequestOptions {
-    url: "https://google.com"
-  });
+  new+4096 res = http::head(RequestOptions { url: "https://example.com" });
 
-  log(&res);
-
+  //log(&res);
   res.destroy();
 
   return 0;

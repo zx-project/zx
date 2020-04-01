@@ -1,6 +1,7 @@
 export using request::{
   RequestOptions,
   request,
+  head,
   get,
 }
 
@@ -16,4 +17,8 @@ export using method::{
   POST,
   PUT,
   OPTIONS
+}
+
+export using init::{
+  init
 }

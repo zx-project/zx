@@ -1,0 +1,95 @@
+using zx_utils as utils
+using <stdio.h>::{ printf }
+using <assert.h>::{ assert }
+using <string.h>::{ strcmp }
+
+fn main() -> int {
+  test_list();
+  test_list_rpush();
+  test_list_lpush();
+  test_list_rpop();
+  test_list_lpop();
+  test_list_find();
+  test_list_at();
+  test_list_remove();
+  test_list_pop();
+  test_list_push();
+  test_list_shift();
+  test_list_unshift();
+
+  test_list_node();
+  test_list_iterator();
+
+  return 0;
+}
+
+fn test_list() {
+  // static
+  {
+
+    new list = utils::list::init();
+    static_attest(safe(list.internal));
+    assert(false == list.alloc);
+    assert(0 == list.head);
+    assert(0 == list.tail);
+    assert(0 == list.length);
+    list.destroy();
+  }
+
+  // alloc
+  {
+    let list = utils::list::create();
+    static_attest(safe(list));
+    static_attest(safe(list->internal));
+    assert(true == list->alloc);
+    assert(0 == list->head);
+    assert(0 == list->tail);
+    assert(0 == list->length);
+    list->destroy();
+  }
+}
+
+fn test_list_rpush() {
+  new list = utils::list::init();
+  static_attest(safe(list));
+  let node = list.rpush("hello");
+  static_attest(safe(node));
+  assert(1 == list.length);
+  (void) node;
+  list.destroy();
+}
+
+fn test_list_lpush() {
+  new list = utils::list::init();
+  static_attest(safe(list));
+  let node = list.lpush("hello");
+  static_attest(safe(node));
+  assert(1 == list.length);
+  (void) node;
+  list.destroy();
+}
+
+fn test_list_rpop() {
+  new list = utils::list::init();
+  static_attest(safe(list));
+  list.rpush("hello");
+  let mut node = list.rpush("world");
+  static_attest(safe(node));
+  assert(2 == list.length);
+  assert(node == list.rpop());
+  assert(1 == list.length);
+  node->destroy();
+  list.destroy();
+}
+
+fn test_list_lpop() { }
+fn test_list_find() { }
+fn test_list_at() { }
+fn test_list_remove() { }
+fn test_list_pop() { }
+fn test_list_push() { }
+fn test_list_shift() { }
+fn test_list_unshift() { }
+
+fn test_list_node() { }
+fn test_list_iterator() { }

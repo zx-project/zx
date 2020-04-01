@@ -1,0 +1,4 @@
+using zx_curl as curl
+
+export fn init() {
+}

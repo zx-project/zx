@@ -1,0 +1,242 @@
+using <list/list.h> as native
+
+using <stdio.h>::{ printf }
+
+using list_iterator::{ Direction, Iterator }
+using list_iterator
+using list_node::{ Node, deref }
+using list_node
+using memory
+
+export const usize MAX_MANAGED_ITERATORS = 256;
+
+export fntype FreeFunction(void mut *ptr) -> void;
+export fntype MatchFunction(void *a, void *b) -> bool;
+
+export struct ListPrototype {
+  FreeFunction free;
+  MatchFunction match;
+}
+
+export struct List {
+  ListPrototype prototype;
+  Node *head;
+  Node *tail;
+  u8 length;
+  Iterator mut *iterators[MAX_MANAGED_ITERATORS];
+  bool alloc;
+  native::list_t mut *internal;
+}
+
+export fn create_node(List mut *self, void *value) -> Node mut *
+  model safe(return)
+  model safe(value)
+{
+  let node = list_node::create(value);
+  node->list = self;
+  return node;
+}
+
+export fn init(List new mut *self)
+  model safe(self->internal)
+{
+  self->internal = native::list_new();
+  memory::zero(self->iterators, sizeof(self->iterators));
+  static_attest(safe(self->internal));
+}
+
+export fn create() -> List mut *
+  model safe(return)
+  model true == return->alloc
+{
+  let list = (List mut *) memory::alloc(sizeof(List));
+  static_attest(safe(list));
+  init(list);
+  list->alloc = true;
+  return list;
+}
+
+export fn destroy(List mut *self)
+{
+  let mut it = self->iterator(list_iterator::Direction::Head);
+
+  static_attest(safe(it));
+
+  while !it->ended {
+    let node = it->next();
+    if 0 == node { break; }
+    static_attest(safe(node));
+    node->destroy();
+  }
+
+  it->destroy();
+
+  for (usize mut i = 0; i < MAX_MANAGED_ITERATORS; ++i) {
+    if 0 != self->iterators[i] {
+      static_attest(safe(self->iterators[i]));
+      self->iterators[i]->destroy();
+      self->iterators[i] = 0;
+    }
+  }
+
+  native::list_destroy(self->internal);
+
+  if self->alloc {
+    memory::free(self);
+  } else {
+    memory::zero(self, sizeof(List));
+  }
+}
+
+fn sync(List mut *self) {
+  unsafe {
+    self->length = self->internal->len;
+
+    if 0 != self->internal->head {
+      self->head = self->internal->head->val;
+    }
+
+    if 0 != self->internal->tail {
+      self->tail = self->internal->tail->val;
+    }
+  }
+}
+
+export fn iterator(List mut *self, Direction direction) -> Iterator mut *
+  model safe(return)
+{
+  return list_iterator::create(self, direction);
+}
+
+export fn rpush(List mut *self, void *value) -> Node mut * {
+  let mut node = create_node(self, value);
+  let internal = node->internal;
+
+  static_attest(safe(node));
+  static_attest(safe(node->internal));
+
+  native::list_rpush(self->internal, node->internal);
+
+  if memory::nonzero(internal) {
+    unsafe {
+      if 0 != internal->prev {
+        node->prev = internal->prev->val;
+      }
+
+      if 0 != internal->next {
+        node->next = internal->next->val;
+      }
+    }
+  }
+
+  self->sync();
+
+  return node;
+}
+
+export fn lpush(List mut *self, void *value) -> Node mut * {
+  let mut node = create_node(self, value);
+  let internal = node->internal;
+
+  static_attest(safe(node));
+  static_attest(safe(node->internal));
+
+  native::list_lpush(self->internal, node->internal);
+
+  unsafe {
+    if 0 != internal->prev {
+      node->prev = internal->prev->val;
+    }
+
+    if 0 != internal->next {
+      node->next = internal->next->val;
+    }
+  }
+
+  self->sync();
+
+  return node;
+}
+
+export fn rpop(List mut *self) -> Node mut * {
+  native::list_node_t *entry = native::list_rpop(self->internal);
+  static_attest(safe(entry));
+
+  self->sync();
+
+  if 0 != entry {
+    unsafe { return deref(entry->val); }
+  }
+
+  return 0;
+}
+
+export fn lpop(List mut *self) -> Node mut * {
+  native::list_node_t *entry = native::list_lpop(self->internal);
+
+  self->sync();
+
+  if 0 != entry {
+    static_attest(safe(entry));
+    unsafe { return deref(entry->val); }
+  }
+
+  return 0;
+}
+
+export fn find(List *self, void *value) -> Node mut * {
+  native::list_node_t *entry = native::list_find(self->internal, (void mut *) value);
+
+  if 0 != entry {
+    static_attest(safe(entry));
+    unsafe { return entry->val; }
+  }
+
+  return 0;
+}
+
+export fn at(List *self, usize index) -> Node mut * {
+  native::list_node_t *entry = native::list_at(self->internal, (int) index);
+
+  if 0 != entry {
+    static_attest(safe(entry));
+    unsafe { return entry->val; }
+  }
+
+  return 0;
+}
+
+export fn remove(List mut *self, void *value)
+  where safe(value)
+{
+  let mut it = self->iterator(list_iterator::Direction::Head);
+  static_attest(safe(it));
+
+  while !it->ended {
+    let node = it->next();
+    if 0 != node {
+      static_attest(safe(node));
+      if value == node->value {
+        node->destroy();
+      }
+    }
+  }
+
+  self->sync();
+}
+
+export fn pop(List mut *self) -> Node mut * {
+  return self->rpop();
+}
+
+export fn push(List mut *self, void *value) -> Node mut * {
+  return self->rpush(value);
+}
+
+export fn shift(List mut *self) -> Node mut * {
+  return self->lpop();
+}
+
+export fn unshift(List mut *self, void *value) -> Node mut * {
+  return self->lpush(value);
+}

@@ -1,0 +1,65 @@
+using <list/list.h> as native
+
+using list::{ List }
+using memory
+
+export struct Node {
+  void *value;
+  List *list;
+  Node mut *prev;
+  Node mut *next;
+  bool alloc;
+  native::list_node_t mut *internal;
+}
+
+export fn alloc() -> Node mut *
+  model safe(return)
+  model true == return->alloc
+{
+  let node = (Node mut *) memory::alloc(sizeof(Node));
+  static_attest(safe(node));
+  node->alloc = true;
+  return node;
+}
+
+export fn init(Node new mut *self, void *value)
+  model safe(value)
+{
+  let internal = (native::list_node_t mut *) native::list_node_new(self);
+  static_attest(safe(value));
+  static_attest(safe(internal));
+
+  self->deref();
+  self->value = value;
+  self->internal = internal;
+}
+
+export fn create(void *value) -> Node mut *
+  model safe(value)
+  model safe(return)
+{
+  let mut node = alloc();
+  init(node, value);
+  return node;
+}
+
+export fn destroy(Node mut *self) {
+  if 0 != self->internal {
+    static_attest(safe(self->internal));
+    if 0 != self->list {
+      static_attest(safe(self->list));
+      native::list_remove(self->list->internal, self->internal);
+    } else {
+      memory::free(self->internal);
+    }
+  }
+
+  memory::free(self);
+}
+
+export fn deref(Node mut *self) -> Node mut * {
+  self->list = 0;
+  self->next = 0;
+  self->prev = 0;
+  return self;
+}

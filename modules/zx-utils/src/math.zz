@@ -1,0 +1,9 @@
+export inline fn max(u32 x, u32 y) -> u32 {
+  if x > y { return x; }
+  else { return y; }
+}
+
+export inline fn min(u32 x, u32 y) -> u32 {
+  if x < y { return x; }
+  else { return y; }
+}
