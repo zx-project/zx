@@ -1,0 +1,20 @@
+using <curl/curl.h> as libcurl
+using <stdio.h>::{ printf }
+
+using zxcurl as curl
+
+fn main() -> int {
+  new request = curl::easy::init();
+  let string = request.escape("hello world", 5 + 1 + 5);
+
+  printf("%d\n", request.setopt(curl::options::URL, "https://github.com"));
+  printf("%d\n", request.perform());
+  printf("%s\n", string);
+
+  if curl::OK != request.perform() {
+    printf("%s\n", request.error_string());
+  }
+
+  request.cleanup();
+  return 0;
+}

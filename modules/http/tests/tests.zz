@@ -1,0 +1,20 @@
+using <stdlib.h>::{ free }
+using <stdio.h>::{ printf }
+
+using zxhttp::{ RequestOptions, Response }
+using zxhttp as http
+
+fn log(Response+length mut *self) {
+  let mut string = self->to_cstr();
+  printf("%s", string);
+  free(string);
+}
+
+fn main() -> int {
+  new+4096 res = http::head(RequestOptions { url: "https://example.com" });
+
+  //log(&res);
+  res.destroy();
+
+  return 0;
+}

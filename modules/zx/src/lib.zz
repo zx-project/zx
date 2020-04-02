@@ -1,1 +1,1 @@
-export using zx_curl
+using zxutils

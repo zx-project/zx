@@ -1,0 +1,88 @@
+using list::{ List }
+
+using zxutils as utils
+
+/**
+ */
+export struct Node {
+  void *value;
+  List mut *list;
+  Node mut *prev;
+  Node mut *next;
+  bool alloc;
+}
+
+/**
+ */
+export fn init(Node new mut *self, void *value) -> Node mut *
+  model safe(self)
+  model safe(value)
+  model safe(return)
+{
+  static_attest(safe(self));
+  static_attest(safe(value));
+
+  self->deref();
+  self->prev = 0;
+  self->next = 0;
+  self->value = value;
+
+  return self;
+}
+
+/**
+ */
+export fn alloc() -> Node mut *
+  model safe(return)
+  model true == return->alloc
+{
+  let node = (Node mut *) utils::memory::alloc(sizeof(Node));
+  static_attest(safe(node));
+  node->alloc = true;
+  return node;
+}
+
+/**
+ */
+export fn create(void *value) -> Node mut *
+  model safe(value)
+  model safe(return)
+{
+  return init(alloc(), value);
+}
+
+/**
+ */
+export fn destroy(Node mut *self) {
+  self->deref();
+
+  if self->alloc {
+    // @TODO(jwerle): use `prototype.free()`
+    utils::memory::free(self);
+  }
+}
+
+/**
+ */
+export fn deref(Node mut *self) -> Node mut * {
+  if 0 != self->prev {
+    static_attest(safe(self->prev));
+    self->prev->next = self->next;
+  } else if 0 != self->list {
+    static_attest(safe(self->list));
+    self->list->head = self->next;
+  }
+
+  if 0 != self->next {
+    static_attest(safe(self->next));
+    self->next->prev = self->prev;
+  } else if 0 != self->list {
+    static_attest(safe(self->list));
+    self->list->tail = self->prev;
+  }
+
+  self->list = 0;
+  self->next = 0;
+  self->prev = 0;
+  return self;
+}

@@ -1,0 +1,13 @@
+using <stdio.h>::{ printf }
+
+using zxhttp as http
+
+fn main (int argc, char **argv) -> int {
+  int mut exit_code = 0;
+  if argc > 1 {
+    unsafe {
+      printf("%s\n", argv[1]);
+    }
+  }
+  return exit_code;
+}

@@ -1,0 +1,287 @@
+using <stdio.h>::{ printf }
+
+using node::{ Node, deref, create as create_node }
+using iterator::{
+  init as init_iterator,
+  Pool as IteratorPool,
+  Direction,
+  Iterator,
+  HEAD,
+  TAIL,
+}
+
+using zxutils as utils
+
+/**
+ */
+export const usize MAX_MANAGED_ITERATORS = 256;
+
+/**
+ */
+export fntype FreeFunction(void mut *ptr) -> void;
+
+/**
+ */
+export fntype CompareFunction(void *a, void *b) -> bool;
+
+/**
+ */
+export struct ListPrototype {
+  FreeFunction free;
+  CompareFunction compare;
+}
+
+/**
+ */
+export struct List {
+  ListPrototype prototype;
+  Node mut *head;
+  Node mut *tail;
+  usize length;
+
+  IteratorPool mut iterators;
+}
+
+/**
+ */
+fn create_list_node(List mut *self, void *value) -> Node mut *
+  model safe(return)
+  model safe(value)
+{
+  let node = create_node(value);
+  node->list = self;
+  return node;
+}
+
+/**
+ */
+export fn noop_free(void mut * mut ptr) {
+  (void) ptr;
+}
+
+/**
+ */
+export fn init(List new mut *self) {
+  utils::memory::zero(&self->iterators, sizeof(self->iterators));
+}
+
+/**
+ */
+export fn destroy(List mut *self) {
+  let mut it = self->iterator();
+
+  while !it.ended {
+    let node = it.next();
+    node->destroy();
+  }
+}
+
+/**
+ */
+export fn iterator(List mut *self) -> Iterator {
+  new it = init_iterator(self, HEAD);
+  return it;
+}
+
+/**
+ */
+export fn iterator_tail(List mut *self) -> Iterator {
+  new it = init_iterator(self, TAIL);
+  return it;
+}
+
+/**
+ */
+export fn rpush(List mut *self, void *value) -> Node mut * {
+  let mut node = create_list_node(self, value);
+  let length = self->length;
+
+  static_attest(safe(node));
+
+  if length > 0 && 0 != self->tail {
+    static_attest(safe(self->tail));
+    node->prev = self->tail;
+    node->next = 0;
+    self->tail->next = node;
+    self->tail = node;
+  } else {
+    node->prev = 0;
+    node->next = 0;
+    self->head = node;
+    self->tail = node;
+  }
+
+  self->length = length + 1;
+
+  return node;
+}
+
+/**
+ */
+export fn lpush(List mut *self, void *value) -> Node mut * {
+  let mut node = create_list_node(self, value);
+  let length = self->length;
+
+  static_attest(safe(node));
+
+  if length > 0 && 0 != self->head {
+    static_attest(safe(self->head));
+    node->next = self->head;
+    node->prev = 0;
+    self->head->prev = node;
+    self->head = node;
+  } else {
+    node->prev = 0;
+    node->next = 0;
+    self->head = node;
+    self->tail = node;
+  }
+
+  self->length = length + 1;
+
+  return node;
+}
+
+/**
+ */
+export fn rpop(List mut *self) -> Node mut * {
+  let length = self->length;
+  let node = self->tail;
+
+  if length - 1 > 0 && 0 != node {
+    static_attest(safe(node));
+    static_attest(safe(node->prev));
+
+    self->length = length - 1;
+    self->tail = node->prev;
+    self->tail->next = 0;
+  } else {
+    self->length = 0;
+    self->tail = 0;
+    self->head = 0;
+  }
+
+  return deref(node);
+}
+
+/**
+ */
+export fn lpop(List mut *self) -> Node mut * {
+  let length = self->length;
+  let node = self->head;
+
+  if length - 1 > 0 && 0 != node {
+    static_attest(safe(node));
+    static_attest(safe(node->next));
+
+    self->length = length - 1;
+    self->head = node->next;
+    self->head->prev = 0;
+  } else {
+    self->length = 0;
+    self->tail = 0;
+    self->head = 0;
+  }
+
+  return deref(node);
+}
+
+/**
+ */
+export fn find(List mut *self, void *value) -> Node mut * {
+  let mut head = self->iterator();
+  let mut tail = self->iterator_tail();
+
+  // @TODO(jwerle): use self->prototype.compare
+
+  while !head.ended && !tail.ended {
+    let left = head.next();
+    let right = tail.next();
+
+    if 0 != left {
+      static_attest(safe(left));
+      if value == left->value {
+        head.destroy();
+        tail.destroy();
+        return left;
+      }
+    }
+
+    if 0 != right {
+      static_attest(safe(right));
+      if value == right->value {
+        head.destroy();
+        tail.destroy();
+        return right;
+      }
+    }
+  }
+
+  head.destroy();
+  tail.destroy();
+
+  return 0;
+}
+
+/**
+ */
+export fn at(List mut *self, int index) -> Node mut * {
+  if (usize) index >= self->length {
+    return 0;
+  }
+
+  let mut i = index;
+  let mut it = self->iterator();
+  let mut node = it.next();
+
+  if index < 0 {
+    it.direction = (Direction) TAIL;
+    it.node = self->tail;
+    i = ~index;
+  }
+
+  while !it.ended && i-- > 0 {
+    node = it.next();
+  }
+
+  return node;
+}
+
+/**
+ */
+export fn remove(List mut *self, void *value)
+  where safe(value)
+{
+  let mut node = self->find(value);
+  let length = self->length;
+
+  if 0 != node {
+    static_attest(safe(node));
+    node->destroy();
+    self->length = length - 1;
+  }
+}
+
+/**
+ */
+export fn pop(List mut *self) -> Node mut * {
+  return self->rpop();
+}
+
+/**
+ */
+export fn push(List mut *self, void *value) -> Node mut * {
+  return self->rpush(value);
+}
+
+/**
+ */
+export fn shift(List mut *self) -> Node mut * {
+  return self->lpop();
+}
+
+/**
+ */
+export fn unshift(List mut *self, void *value) -> Node mut * {
+  return self->lpush(value);
+}

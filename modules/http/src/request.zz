@@ -1,0 +1,137 @@
+using zxcurl::{ Context as CURLContext }
+using zxutils as utils
+using zxcurl as curl
+
+using zxlist
+
+using response::{ InternalResponse, Response }
+using response
+using method
+
+export struct RequestOptions {
+  u8 method;
+  char *custom_method;
+  char *url;
+}
+
+export struct Request {
+  Response *response;
+}
+
+export fn request(Response+length new mut *self, RequestOptions options)
+  where nullterm(options.url)
+  where options.method > 0
+  where length > 0
+{
+  static_assert(length > 0);
+  static_assert(options.method > 0);
+
+  new internal = response::internal(self);
+  new opts = normalize_options(options);
+  new req = initialize_request(self);
+  new ctx = curl::easy::init();
+
+  configure_curl(ctx, &internal, opts);
+
+  self->length = length;
+  self->ctx = ctx;
+
+  ctx.perform();
+}
+
+export fn get(Response+length new mut *self, RequestOptions options)
+  model 0 == options.method
+{
+  static_attest(length > 0);
+  static_attest(nullterm(options.url));
+  static_attest(0 == options.method);
+
+  request(self, RequestOptions {
+    method: method::GET,
+    url: options.url
+  })
+}
+
+export fn head(Response+length new mut *self, RequestOptions options)
+  model 0 == options.method
+{
+  static_attest(length > 0);
+  static_attest(nullterm(options.url));
+  static_attest(0 == options.method);
+
+  request(self, RequestOptions {
+    method: method::HEAD,
+    url: options.url
+  })
+}
+
+fn normalize_options(RequestOptions mut new *self, RequestOptions options)
+  model safe(options.url)
+  model nullterm(options.url)
+{
+  static_attest(safe(options.url));
+  static_attest(nullterm(options.url));
+
+  utils::memory::copy(self, &options, sizeof(RequestOptions));
+
+  if (0 == self->method) {
+    if (0 == self->custom_method) {
+      self->method = method::GET;
+    }
+  }
+}
+
+fn initialize_request(Request new mut *self, Response mut *response) {
+  self->response = response;
+  response->request = (Request *) self;
+  zxlist::init(&response->headers);
+}
+
+fn configure_curl(
+  CURLContext mut ctx,
+  InternalResponse *internal,
+  RequestOptions options
+) {
+  ctx.setopt(curl::options::URL, (void *) options.url);
+  ctx.setopt(curl::options::FOLLOWLOCATION, (void *) 1);
+
+  ctx.setopt(curl::options::WRITEDATA, internal);
+  ctx.setopt(curl::options::WRITEFUNCTION, (void *) response::write_callback);
+
+  ctx.setopt(curl::options::HEADERDATA, internal);
+  ctx.setopt(curl::options::HEADERFUNCTION, (void *) response::header_callback);
+
+  switch options.method {
+    method::GET => {
+      ctx.setopt(curl::options::HTTPGET, (void *) 1);
+    }
+
+    method::POST => {
+      ctx.setopt(curl::options::POST, (void *) 1);
+    }
+
+    method::PUT => {
+      ctx.setopt(curl::options::PUT, (void *) 1);
+    }
+
+    method::DELETE => {
+      ctx.setopt(curl::options::CUSTOMREQUEST, method::string(method::DELETE));
+    }
+
+    method::HEAD => {
+      ctx.setopt(curl::options::CUSTOMREQUEST, method::string(method::HEAD));
+    }
+
+    method::PATCH => {
+      ctx.setopt(curl::options::CUSTOMREQUEST, method::string(method::PATCH));
+    }
+
+    method::OPTIONS => {
+      ctx.setopt(curl::options::CUSTOMREQUEST, method::string(method::OPTIONS));
+    }
+
+    default => {
+      ctx.setopt(curl::options::CUSTOMREQUEST, options.custom_method);
+    }
+  }
+}

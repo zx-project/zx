@@ -1,0 +1,105 @@
+using <stdlib.h>::{ malloc }
+
+using zxcurl::{ Context as CURLContext }
+using zxutils as utils
+using zxcurl as curl
+
+using zxlist::{ List }
+using zxlist
+
+using request::{ Request }
+using header::{ Header }
+using log
+
+export struct Response+ {
+  CURLContext ctx;
+  Request *request;
+  u8 status;
+  bool ok;
+  usize length;
+  List headers;
+  u8 data[];
+}
+
+export struct InternalResponse {
+  CURLContext ctx;
+  usize length;
+  u8 mut *data;
+  void *response;
+  ResponseReadState mut state;
+  List mut *headers;
+}
+
+export struct ResponseReadState {
+  usize offset;
+  usize size;
+}
+
+export fn internal(InternalResponse new mut *self, Response+length *response) {
+  self->headers = (List mut *) &response->headers;
+  self->response = response;
+  self->length = length;
+  self->ctx = response->ctx;
+  self->data = (u8 mut *) response->data;
+}
+
+export fn destroy(Response+length mut *self) {
+  self->headers.destroy();
+  self->ctx.cleanup();
+}
+
+export fn to_cstr(Response+length *self) -> char mut *
+  model safe(return)
+{
+  let size = self->length + 1;
+  char mut *string = malloc(size);
+  static_attest(safe(string));
+  utils::memory::zero(string, size);
+  utils::memory::copy(string, self->data, self->length);
+  return string;
+}
+
+export fn write_callback(void *data, usize size, usize chunks, void *ptr) -> usize
+  model safe(ptr)
+{
+  let mut res = (InternalResponse *) ptr;
+  let mut state = (ResponseReadState mut *) &res->state;
+  let byte_length = (usize) utils::math::min(res->length, size * chunks);
+  let mut bytes_written = (usize) 0;
+
+  static_attest(safe(res->data));
+  static_attest(len(res->data) > 0);
+  static_attest(len(res->data) > state->size);
+  static_attest(len(res->data) > state->offset);
+
+  if byte_length > 0 {
+    let offset = (usize) state->offset;
+    let length = (usize) utils::math::min(byte_length, state->size - byte_length);
+
+    // read respone data into the internal response data pointer
+    utils::memory::copy(res->data + offset, data, length);
+    state->size += length;
+    state->offset = state->size;
+
+    bytes_written = length;
+  }
+
+  return bytes_written;
+}
+
+export fn header_callback(void *data, usize size, usize chunks, void *ptr) -> usize
+  model safe(ptr)
+{
+  let mut res = (InternalResponse *) ptr;
+  let mut headers = res->headers;
+  let byte_length = (usize) size * chunks;
+
+  static_attest(safe(data));
+  static_attest(safe(headers));
+
+  //let mut header = (Header *) = utils::memory::alloc(sizeof(Header));
+  //header->raw 
+
+  //headers->rpush(utils::memory::duplicate(data, byte_length));
+  return byte_length;
+}

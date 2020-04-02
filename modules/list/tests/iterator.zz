@@ -1,0 +1,53 @@
+using <assert.h>::{ assert }
+using <string.h>::{ strcmp }
+using <stdio.h>::{ printf }
+
+using zxlist
+
+fn main() -> int {
+  new mut list = zxlist::init();
+  new mut copy = zxlist::init();
+
+  static_attest(safe(list));
+  static_attest(safe(copy));
+
+  list.push("a");
+  list.push("b");
+  list.push("c");
+  list.push("d");
+  list.push("e");
+
+  {
+    let mut it = list.iterator();
+    while !it.ended {
+      let node = it.next();
+      static_attest(safe(node));
+      static_attest(safe(node->value));
+      copy.push(node->value);
+    }
+
+    assert(list.length == copy.length);
+  }
+
+  {
+    let mut it = list.iterator();
+    usize mut index = 0;
+    while !it.ended {
+      let left = it.next();
+      let right = copy.at(index);
+      if 0 != left && 0 != right {
+        static_attest(safe(left));
+        static_attest(safe(right));
+        assert(0 == strcmp(left->value, right->value));
+        index++;
+      }
+    }
+
+    assert(index == list.length);
+    assert(index == copy.length);
+  }
+
+  list.destroy();
+  copy.destroy();
+  return 0;
+}

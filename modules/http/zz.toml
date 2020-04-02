@@ -1,7 +1,7 @@
 [project]
 version = "0.1.0"
-name = "zx"
-cincludes = []
+name = "zxhttp"
+cincludes = ["-pthread"]
 cobjects = []
 pkgconfig = []
 cflags = []
@@ -11,4 +11,7 @@ lflags = []
 default = []
 
 [dependencies]
+curl = "*"
+list = "*"
+log = "*"
 utils = "*"

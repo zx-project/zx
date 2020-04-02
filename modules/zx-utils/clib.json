@@ -1,7 +1,0 @@
-{
-  "name": "zx-utils",
-  "repo": "zx-project/zx",
-  "dependencies": {
-    "list": "0.0.8"
-  }
-}
