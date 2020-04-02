@@ -1,71 +1,221 @@
-using <stdio.h>::{ printf }
-
-using node::{ Node, deref, create as create_node }
 using iterator::{
   init as init_iterator,
-  Pool as IteratorPool,
   Direction,
   Iterator,
   HEAD,
   TAIL,
 }
 
+using node::{
+  alloc as alloc_node,
+  init as init_node,
+  deref,
+  Node,
+}
+
 using zxutils as utils
 
 /**
+ * A free function used to free the value a node points to. This is a
+ * NOP function by default.
  */
-export const usize MAX_MANAGED_ITERATORS = 256;
+export fntype FreeNodeValueFunction(void mut *ptr) -> void;
 
 /**
+ * A compare function used to compare pointers when find a node in a list.
  */
-export fntype FreeFunction(void mut *ptr) -> void;
+export fntype CompareNodeValueFunction(void *a, void *b) -> bool;
 
 /**
+ * A function used to allocate a `Node *` pointer.
  */
-export fntype CompareFunction(void *a, void *b) -> bool;
+export fntype AllocateNodeFunction() -> Node mut *;
 
 /**
+ * A function used to free an allocated `Node *` pointer.
  */
-export struct ListPrototype {
-  FreeFunction free;
-  CompareFunction compare;
+export fntype FreeNodeFunction(Node mut *node) -> void;
+
+/**
+ * A prototype of functions used on list nodes.
+ */
+struct ListNodePrototype {
+  FreeNodeFunction free;
+  AllocateNodeFunction alloc;
 }
 
 /**
+ * A prototype of functions used on list node values.
+ */
+struct ListNodeValuePrototype {
+  FreeNodeValueFunction free;
+  CompareNodeValueFunction compare;
+}
+
+/**
+ * A prototype of functions for list nodes and their values.
+ */
+export struct ListPrototype {
+  ListNodeValuePrototype values;
+  ListNodePrototype nodes;
+}
+
+/**
+ * A structure prototype of list defaults, such as the iterator direction.
+ */
+export struct ListDefaults {
+  Direction iterator_direction;
+}
+
+/**
+ * A static structure of list configuration defaults.
+ */
+static ListDefaults shared_defaults = ListDefaults {
+  iterator_direction: HEAD
+};
+
+/**
+ * A doubly linked list suitable for stack allocation.
  */
 export struct List {
-  ListPrototype prototype;
   Node mut *head;
   Node mut *tail;
   usize length;
 
-  IteratorPool mut iterators;
+  ListPrototype prototype;
+  ListDefaults defaults;
 }
 
 /**
+ * Creates (allocate) a list node and attaches self to list node.
+ * @private
  */
 fn create_list_node(List mut *self, void *value) -> Node mut *
-  model safe(return)
   model safe(value)
+  model safe(return)
+  model true == return->alloc
+  model safe(self->prototype.nodes.alloc)
 {
-  let node = create_node(value);
+  static_attest(safe(self->prototype.nodes.alloc));
+
+  let mut node = self->prototype.nodes.alloc();
+
+  static_attest(safe(value));
+  static_attest(safe(node));
+
+  init_node(node, value);
   node->list = self;
+  node->alloc = true;
   return node;
 }
 
 /**
+ * The default free function for every list node.
+ * @private
  */
-export fn noop_free(void mut * mut ptr) {
+fn default_node_free(Node mut *node)
+  model safe(node)
+{
+  utils::memory::free(node);
+}
+
+/**
+ * The default free function for every list node.
+ * @private
+ */
+fn default_node_allocate() -> Node mut *
+  model safe(return)
+  model true == return->alloc
+{
+  let node = alloc_node();
+  static_attest(safe(node));
+  return node;
+}
+
+/**
+ * The default NOP free function for every list node value.
+ * @private
+ */
+fn default_node_value_free(void mut * mut ptr) {
   (void) ptr;
 }
 
 /**
+ * The default node value comparator function.
+ * @private
  */
-export fn init(List new mut *self) {
-  utils::memory::zero(&self->iterators, sizeof(self->iterators));
+fn default_node_value_compare(void *left, void *right) -> bool
+  model safe(left)
+  model safe(right)
+{
+  static_attest(safe(left));
+  static_attest(safe(right));
+  return left == right;
 }
 
 /**
+ * `List` constructor. Initializes a `List` pointer.
+ * @constructor
+ * @example
+ *   new list = zxlist::init();
+ */
+export fn init(List new mut *self) {
+  utils::memory::copy(&self->defaults, &shared_defaults, sizeof(ListDefaults));
+
+  // set default prototype functions
+  self->set_prototype(ListPrototype {
+    nodes: ListNodePrototype {
+      free: default_node_free,
+      alloc: default_node_allocate,
+    },
+
+    values: ListNodeValuePrototype {
+      free: default_node_value_free,
+      compare: default_node_value_compare,
+    }
+  });
+}
+
+/**
+ * Extend the prototype of the `List` instance.
+ * @example
+ *   new list = zxlist::init();
+ *   list.set_prototype(ListPrototype {
+ *     nodes: ListNodePrototype {
+ *       free: node_free_function,
+ *       alloc: node_allocate_function,
+ *     },
+ *
+ *     values: ListNodeValuePrototype {
+ *       free: node_value_free_function,
+ *       compare: node_value_compare_function,
+ *     }
+ *   })
+ */
+export fn set_prototype(List new mut *self, ListPrototype prototype) {
+  if 0 != prototype.nodes.free {
+    self->prototype.nodes.free = prototype.nodes.free;
+  }
+
+  if 0 != prototype.nodes.alloc {
+    self->prototype.nodes.alloc = prototype.nodes.alloc;
+  }
+
+  if 0 != prototype.values.free {
+    self->prototype.values.free = prototype.values.free;
+  }
+
+  if 0 != prototype.values.compare {
+    self->prototype.values.compare = prototype.values.compare;
+  }
+}
+
+/**
+ * Destroys list, active iterators, and any allocated nodes
+ * still attached to the list.
+ * @example
+ *   new list = zxlist::init();
+ *   list.destroy();
  */
 export fn destroy(List mut *self) {
   let mut it = self->iterator();
@@ -74,26 +224,102 @@ export fn destroy(List mut *self) {
     let node = it.next();
     node->destroy();
   }
+
+  utils::memory::zero(self, sizeof(List));
 }
 
 /**
+ * Creates and returns a stack allocated iterator for a list instance
+ * in the default iterator direction.
+ * @example
+ *   new list = zxlist::init();
+ *   let it = list.iterator();
+ *
+ *   while !it.ended {
+ *     let node = it.next();
+ *   }
+ *
+ *   it.destroy();
  */
 export fn iterator(List mut *self) -> Iterator {
-  new it = init_iterator(self, HEAD);
-  return it;
+  let defaults = self->defaults;
+  return self->iterator_with_direction(defaults.iterator_direction);
 }
 
 /**
+ * Creates and returns a stack allocated iterator for a list instance
+ * in the "head" direction.
+ * @example
+ *   new list = zxlist::init();
+ *   let it = list.iterator_head();
+ *
+ *   while !it.ended {
+ *     let node = it.next();
+ *   }
+ *
+ *   it.destroy();
  */
-export fn iterator_tail(List mut *self) -> Iterator {
-  new it = init_iterator(self, TAIL);
+export inline fn iterator_head(List mut *self) -> Iterator {
+  return self->iterator_with_direction(HEAD);
+}
+
+/**
+ * Creates and returns a stack allocated iterator for a list instance
+ * in the "tail" direction.
+ * @example
+ *   new list = zxlist::init();
+ *   let it = list.iterator_tail();
+ *
+ *   while !it.ended {
+ *     let node = it.next();
+ *   }
+ *
+ *   it.destroy();
+ */
+export inline fn iterator_tail(List mut *self) -> Iterator {
+  return self->iterator_with_direction(TAIL);
+}
+
+/**
+ * Creates and returns a stack allocated iterator for a list instance
+ * in a given direction.
+ * @example
+ *   new list = zxlist::init();
+ *   let it = list.iterator_with_direction(zxlist::HEAD);
+ *
+ *   while !it.ended {
+ *     let node = it.next();
+ *   }
+ *
+ *   it.destroy();
+ */
+export fn iterator_with_direction(List mut *self, Direction direction) -> Iterator {
+  new it = init_iterator(self, direction);
   return it;
 }
 
 /**
+ * Pushes a value to the right of the list updating the tail returning the
+ * newly created list node.
+ * @example
+ *   new list = zxlist::init();
+ *   list.rpush("hello");
+ *   list.rpush("world");
  */
 export fn rpush(List mut *self, void *value) -> Node mut * {
   let mut node = create_list_node(self, value);
+  return rpush_node(self, node);
+}
+
+/**
+ * Pushes a node with a value to the right of the list updating the tail
+ * returning the newly created list node.
+ * @example
+ *   new list = zxlist::init();
+ *   let node = zxlist::node::init("hello")
+ *   list.rpush_node(&node);
+ */
+export fn rpush_node(List mut *self, Node mut *node) -> Node mut * {
   let length = self->length;
 
   static_attest(safe(node));
@@ -112,14 +338,32 @@ export fn rpush(List mut *self, void *value) -> Node mut * {
   }
 
   self->length = length + 1;
-
   return node;
 }
 
 /**
+ * Pushes a value to the left of the list updating the head returning the
+ * newly created list node.
+ * @example
+ *   new list = zxlist::init();
+ *   list.lpush("world");
+ *   list.lpush("hello");
  */
 export fn lpush(List mut *self, void *value) -> Node mut * {
   let mut node = create_list_node(self, value);
+
+  return lpush_node(self, node);
+}
+
+/**
+ * Pushes a value to the left of the list updating the head returning the
+ * newly created list node.
+ * @example
+ *   new list = zxlist::init();
+ *   let node = zxlist::node::init("hello");
+ *   list.lpush_node(node);
+ */
+export fn lpush_node(List mut *self, Node mut *node) -> Node mut * {
   let length = self->length;
 
   static_attest(safe(node));
@@ -138,11 +382,19 @@ export fn lpush(List mut *self, void *value) -> Node mut * {
   }
 
   self->length = length + 1;
-
   return node;
 }
 
 /**
+ * Pops and returns a node with its value from the right of the list updating
+ * the tail. The returned node's memory must be managed by the caller as the
+ * list will not free any allocated resources for the returned node as it is
+ * dereferenced from the list.
+ * @example
+ *   new list = zxlist::init();
+ *   list.rpush("hello");
+ *   list.rpush("world");
+ *   let node = list.rpop(); // node with value "world"
  */
 export fn rpop(List mut *self) -> Node mut * {
   let length = self->length;
@@ -165,6 +417,15 @@ export fn rpop(List mut *self) -> Node mut * {
 }
 
 /**
+ * Pops and returns a node with its value from the left of the list updating
+ * the head. The returned node's memory must be managed by the caller as the
+ * list will not free any allocated resources for the returned node as it is
+ * dereferenced from the list.
+ * @example
+ *   new list = zxlist::init();
+ *   list.rpush("hello");
+ *   list.rpush("world");
+ *   let node = list.lpop(); // node with value "hello"
  */
 export fn lpop(List mut *self) -> Node mut * {
   let length = self->length;
@@ -187,12 +448,24 @@ export fn lpop(List mut *self) -> Node mut * {
 }
 
 /**
+ * Finds and returns a list node that points to a value that matches the given
+ * value pointer. A user supplied comparator function can be used by setting
+ * `list.prototype.values.compare` to a `CompareNodeValueFunction` type, otherwise
+ * simple pointer comparison is used by default.
+ * @example
+ *   new list = zxlist::init();
+ *   list.rpush("hello");
+ *   list.rpush("world");
+ *   let node = list.find("world"); // node with value "world"
  */
-export fn find(List mut *self, void *value) -> Node mut * {
-  let mut head = self->iterator();
-  let mut tail = self->iterator_tail();
+export fn find(List mut *self, void *value) -> Node mut *
+  model safe(self->prototype.values.compare)
+{
+  static_attest(safe(self->prototype.values.compare));
 
-  // @TODO(jwerle): use self->prototype.compare
+  let mut tail = self->iterator_tail();
+  let mut head = self->iterator();
+  let compare = self->prototype.values.compare;
 
   while !head.ended && !tail.ended {
     let left = head.next();
@@ -200,7 +473,7 @@ export fn find(List mut *self, void *value) -> Node mut * {
 
     if 0 != left {
       static_attest(safe(left));
-      if value == left->value {
+      if compare(value, left->value) {
         head.destroy();
         tail.destroy();
         return left;
@@ -209,7 +482,7 @@ export fn find(List mut *self, void *value) -> Node mut * {
 
     if 0 != right {
       static_attest(safe(right));
-      if value == right->value {
+      if compare(value, right->value) {
         head.destroy();
         tail.destroy();
         return right;
@@ -224,6 +497,12 @@ export fn find(List mut *self, void *value) -> Node mut * {
 }
 
 /**
+ * Finds and returns the list node at a given index.
+ * @example
+ *   new list = zxlist::init();
+ *   list.rpush("hello");
+ *   list.rpush("world");
+ *   let node = list.at(1); // node with value "world"
  */
 export fn at(List mut *self, int index) -> Node mut * {
   if (usize) index >= self->length {
@@ -248,11 +527,35 @@ export fn at(List mut *self, int index) -> Node mut * {
 }
 
 /**
+ * Finds a list node that points to a given value and removes it from the
+ * list, freeing any allocated resources. This function will call
+ * `list.prototype.nodes.free()`.
+ * @example
+ *   new list = zxlist::init();
+ *   list.rpush("hello");
+ *   list.rpush("world");
+ *   list.remove("world");
+ *   assert(1 == list.length);
  */
 export fn remove(List mut *self, void *value)
   where safe(value)
 {
   let mut node = self->find(value);
+  if 0 != node {
+    static_attest(safe(node));
+    remove_node(self, node);
+  }
+}
+
+/**
+ * Removes a node from the list, destroying it, updating links and list
+ * length.
+ * @example
+ *   new list = zxlist::init();
+ *   let node = list.push("hello");
+ *   list.remove_node(node);
+ */
+export fn remove_node(List mut *self, Node mut *node) {
   let length = self->length;
 
   if 0 != node {
@@ -263,25 +566,129 @@ export fn remove(List mut *self, void *value)
 }
 
 /**
+ * Returns a boolean indicating if a list contains a value.
+ * @example
+ *   new list = zxlist::init();
+ *   list.push("hello");
+ *   if list.contains("hello") {
+ *     list.push("world");
+ *   }
+ */
+export fn contains(List mut *self, void *value) -> bool
+  model safe(self)
+  model safe(value)
+{
+  let node = self->find(value);
+
+  if 0 != node {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/**
+ * Returns a boolean indicating if a list contains a list node.
+ * @example
+ *   new list = zxlist::init();
+ *   let hello = list.push("hello");
+ *   if list.contains_node(hello) {
+ *     let world = list.create_node("world");
+ *     list.push_node(world);
+ *   }
+ */
+export fn contains_node(List mut *self, Node *node) -> bool
+  model safe(self)
+  model safe(node)
+{
+  let mut it = self->iterator();
+
+  while !it.ended {
+    let suspect = it.next();
+    if node == suspect {
+      it.destroy();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * An alias to `list.rpop()`.
+ * @example
+ *   new list = zxlist::init();
+ *   list.rpush("hello");
+ *   list.rpush("world");
+ *   let node = list.pop(); // node with value "world"
  */
 export fn pop(List mut *self) -> Node mut * {
   return self->rpop();
 }
 
 /**
+ * An alias to `list.rpush()`.
+ * @example
+ *   new list = zxlist::init();
+ *   list.push("hello");
+ *   list.push("world");
  */
 export fn push(List mut *self, void *value) -> Node mut * {
   return self->rpush(value);
 }
 
 /**
+ * An alias to `list.rpush_node()`.
+ * @example
+ *   new list = zxlist::init();
+ *   let node = zxlist::node::init("hello")
+ *   list.push_node(&node);
+ */
+export fn push_node(List mut *self, Node mut *node) -> Node mut * {
+  return self->rpush_node(node);
+}
+
+/**
+ * An alias to `list.lpop()`.
+ * @example
+ *   new list = zxlist::init();
+ *   list.push("hello");
+ *   list.push("world");
+ *   let node = list.shift(); // node with value "hello"
  */
 export fn shift(List mut *self) -> Node mut * {
   return self->lpop();
 }
 
 /**
+ * An alias to `list.lpush()`.
+ * @example
+ *   new list = zxlist::init();
+ *   list.unshift("world");
+ *   list.unshift("hello");
  */
 export fn unshift(List mut *self, void *value) -> Node mut * {
   return self->lpush(value);
+}
+
+/**
+ * An alias to `list.lpush_node()`.
+ * @example
+ *   new list = zxlist::init();
+ *   let node = zxlist::node::init("hello");
+ *   list.unshift_node(node);
+ */
+export fn unshift_node(List mut *self, Node mut *node) -> Node mut * {
+  return self->lpush_node(node);
+}
+
+/**
+ * Creates a unlinked node from a given value attached to list.
+ * @example
+ *   new list = zxlist::init();
+ *   let node = list.create_node("hello");
+ *   node->destroy();
+ */
+export fn create_node(List mut *self, void *value) -> Node mut * {
+  return create_list_node(self, value);
 }

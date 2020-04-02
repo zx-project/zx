@@ -3,6 +3,8 @@ using list::{ List }
 using zxutils as utils
 
 /**
+ * A node structure to contain pointers to a list node's value,
+ * containing List structure, and next/prev nodes.
  */
 export struct Node {
   void *value;
@@ -13,6 +15,9 @@ export struct Node {
 }
 
 /**
+ * `Node` constructor. Initializes a `Node` pointer with a value pointer.
+ * @example
+ *   let node = zxlist::node::init();
  */
 export fn init(Node new mut *self, void *value) -> Node mut *
   model safe(self)
@@ -31,6 +36,12 @@ export fn init(Node new mut *self, void *value) -> Node mut *
 }
 
 /**
+ * Allocates and returns memory for an uninitialized `Node` pointer.
+ * Calls `zxutils::memory::alloc()` internally and therefore
+ * returns memory that must be free'd.
+ * @example
+ *  let mut node = zxlist::node::alloc();
+ *  zxutils::memory::free(node);
  */
 export fn alloc() -> Node mut *
   model safe(return)
@@ -43,6 +54,9 @@ export fn alloc() -> Node mut *
 }
 
 /**
+ * Allocates and initializes a new `Node` pointer.
+ * Calls `zxutils::memory::alloc()` internally and therefore
+ * returns memory that must be free'd.
  */
 export fn create(void *value) -> Node mut *
   model safe(value)
@@ -52,17 +66,44 @@ export fn create(void *value) -> Node mut *
 }
 
 /**
+ * Destroys a list node, dereferencing any links, and free any possible
+ * resources, including the node itself.
+ * @example
+ *   let node = list.pop();
+ *   node->destroy();
  */
 export fn destroy(Node mut *self) {
+  let list = self->list;
+  let value = self->value;
+
   self->deref();
 
+  if 0 != list {
+    static_attest(safe(list));
+    if 0 != list->prototype.values.free {
+      static_attest(safe(list->prototype.values.free));
+      list->prototype.values.free((void mut *) value);
+    }
+  }
+
   if self->alloc {
-    // @TODO(jwerle): use `prototype.free()`
+    if 0 != list {
+      static_attest(safe(list));
+      if 0 != list->prototype.nodes.free {
+        static_attest(safe(list->prototype.nodes.free));
+        list->prototype.nodes.free(self);
+        return;
+      }
+    }
+
+    // use default free if node is orphaned
     utils::memory::free(self);
   }
 }
 
 /**
+ * Detaches node from list and any dereferences links
+ * @protected
  */
 export fn deref(Node mut *self) -> Node mut * {
   if 0 != self->prev {

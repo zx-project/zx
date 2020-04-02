@@ -1,4 +1,4 @@
-using list::{ List, MAX_MANAGED_ITERATORS }
+using list::{ List }
 using node::{ Node }
 
 using zxutils as utils
@@ -12,10 +12,14 @@ export enum Direction {
 }
 
 /**
+ * The `Direction::Head` enum value exported as a
+ * constant for better ergonomics.
  */
 export const int HEAD = Direction::Head;
 
 /**
+ * The `Direction::Tail` enum value exported as a
+ * constant for better ergonomics.
  */
 export const int TAIL = Direction::Tail;
 
@@ -30,16 +34,13 @@ export struct Iterator {
 }
 
 /**
- */
-export struct Pool+ {
-  usize length;
-  Iterator mut pool[];
-}
-
-/**
  * `Iterator` stack constructor with direction from a list.
  */
-export fn init(Iterator new mut *self, List mut *list, Direction direction) -> Iterator mut *
+export fn init(
+  Iterator new mut *self,
+  List mut *list,
+  Direction direction
+) -> Iterator mut *
   model safe(list)
   model safe(self)
   model safe(return)
@@ -51,7 +52,7 @@ export fn init(Iterator new mut *self, List mut *list, Direction direction) -> I
   self->ended = false;
   self->direction = direction;
 
-  switch self->direction {
+  switch direction {
     Direction::Head => { self->node = list->head; }
     Direction::Tail => { self->node = list->tail; }
   }
@@ -64,30 +65,16 @@ export fn init(Iterator new mut *self, List mut *list, Direction direction) -> I
 }
 
 /**
- * `Iterator` heap constructor with heap allocation.
- */
-export fn create(List mut*list, Direction direction) -> Iterator mut *
-  model safe(list)
-  model safe(return)
-{
-  static_attest(list->iterators.length < len(list->iterators.pool));
-  let index = list->iterators.length;
-  let self = &list->iterators.pool[index];
-
-  list->iterators.length = index + 1;
-
-  static_attest(safe(self));
-  static_attest(safe(list));
-
-  init(self, list, direction);
-
-  return self;
-}
-
-/**
  * Returns a pointer to the next node in the list.
+ * @example
+ *   new list = zxlist::init();
+ *   let it = list.iterator();
+ *   while !it.ended {
+ *     let node = it.next();
+ *   }
  */
 export fn next(Iterator mut *self) -> Node mut *
+  model safe(self)
   model safe(return)
 {
   let node = self->node;
@@ -109,22 +96,40 @@ export fn next(Iterator mut *self) -> Node mut *
 }
 
 /**
- * Destroys the iterator, free'ing itself if it was marked
- * as allocated.
+ * Marks the iterator as "ended".
+ * @example
+ *   new list = zxlist::init();
+ *   let mut it = list.iterator();
+ *
+ *   while !it.ended {
+ *     if list.contains(key) {
+ *       it.end();
+ *     } else {
+ *       it.next();
+ *    }
+ *   }
+ *
+ *   it.destroy();
  */
-export fn destroy(Iterator mut *self) {
-  let list = self->list;
-  self->list = 0;
+export fn end(Iterator mut *self)
+  model safe(self)
+{
+  self->ended = true;
+  self->node = 0;
+}
 
-  if 0 != list {
-    static_attest(safe(list));
-    static_attest(list->iterators.length < len(list->iterators.pool));
-    for (usize mut i = 0; i < list->iterators.length; ++i) {
-      static_attest(safe(&list->iterators.pool[i]));
-      if self == &list->iterators.pool[i] {
-        utils::memory::zero(&list->iterators.pool[i], sizeof(Iterator));
-        return;
-      }
-    }
-  }
+/**
+ * Destroys the iterator.
+ * @example
+ *   new list = zxlist::init();
+ *   let it = list.iterator();
+ *   it.destroy();
+ */
+export fn destroy(Iterator mut *self)
+  model safe(self)
+{
+  self->end();
+  self->list = 0;
+  self->node = 0;
+  self->ended = true;
 }

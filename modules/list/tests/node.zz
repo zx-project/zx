@@ -11,14 +11,21 @@ fn main() -> int {
   }
 
   {
+    new mut list = zxlist::init();
     new nested = zxlist::node::init("hello");
     new node = zxlist::node::init(&nested);
     static_attest(safe(node));
+
     let value = (zxlist::node::Node *) node.value;
     static_attest(safe(value));
     assert(0 == strcmp("hello", value->value));
+
+    list.push_node(&node);
+    assert(&node == list.find(&nested));
+
     nested.destroy();
     node.destroy();
+    list.destroy();
   }
 
   {
