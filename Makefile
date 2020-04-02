@@ -1,5 +1,4 @@
-MODULES += zx
-MODULES += zx-cli
+MODULES += http curl utils list
 
 ZZ ?= $(shell which zz)
 
