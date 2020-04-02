@@ -4,16 +4,22 @@ using <stdio.h>::{ printf }
 using zxhttp::{ RequestOptions, Response }
 using zxhttp as http
 
-fn log(Response+length mut *self) {
-  let mut string = self->to_cstr();
-  printf("%s", string);
-  free(string);
-}
-
 fn main() -> int {
   new+4096 res = http::head(RequestOptions { url: "https://example.com" });
+  let mut headers = res.headers.iterator();
 
-  //log(&res);
+  while !headers.ended {
+    let header = headers.next();
+    if 0 != header->value {
+      static_attest(safe(header->value));
+      printf("%s", header->value);
+    }
+  }
+
+  let mut string = res.to_cstr();
+  printf("%s", string);
+  free(string);
+
   res.destroy();
 
   return 0;

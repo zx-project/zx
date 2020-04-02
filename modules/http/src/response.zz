@@ -36,14 +36,24 @@ export struct ResponseReadState {
 }
 
 export fn internal(InternalResponse new mut *self, Response+length *response) {
-  self->headers = (List mut *) &response->headers;
   self->response = response;
+  self->headers = (List mut *) &response->headers;
   self->length = length;
   self->ctx = response->ctx;
   self->data = (u8 mut *) response->data;
+
+  zxlist::init(self->headers);
 }
 
 export fn destroy(Response+length mut *self) {
+  let mut headers = self->headers.iterator();
+  while !headers.ended {
+    let mut header = headers.next();
+    if 0 != header->value {
+      static_attest(safe(header->value));
+      utils::memory::free((void mut *) header->value);
+    }
+  }
   self->headers.destroy();
   self->ctx.cleanup();
 }
@@ -94,12 +104,14 @@ export fn header_callback(void *data, usize size, usize chunks, void *ptr) -> us
   let mut headers = res->headers;
   let byte_length = (usize) size * chunks;
 
+  // data with nullterm
+  let entry = utils::memory::duplicate(data, byte_length + 1);
+
   static_attest(safe(data));
   static_attest(safe(headers));
+  static_attest(safe(entry));
 
-  //let mut header = (Header *) = utils::memory::alloc(sizeof(Header));
-  //header->raw 
+  headers->push(entry);
 
-  //headers->rpush(utils::memory::duplicate(data, byte_length));
   return byte_length;
 }
