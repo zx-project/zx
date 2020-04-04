@@ -1,14 +1,3 @@
-export using request::{
-  RequestOptions,
-  request,
-  head,
-  get,
-}
-
-export using response::{
-  Response,
-}
-
 export using method::{
   DELETE,
   GET,
@@ -19,6 +8,21 @@ export using method::{
   OPTIONS
 }
 
+export using header::{
+  Header
+}
+
 export using init::{
   init
+}
+
+export using response::{
+  Response,
+}
+
+export using request::{
+  RequestOptions,
+  request,
+  head,
+  get,
 }

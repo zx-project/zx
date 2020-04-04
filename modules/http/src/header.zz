@@ -1,5 +1,9 @@
 export struct Header {
   char *key;
   char *value;
-  char *raw;
+}
+
+export struct MutableHeader {
+  char mut * mut key;
+  char mut * mut value;
 }

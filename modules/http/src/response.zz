@@ -1,23 +1,30 @@
-using <stdlib.h>::{ malloc }
+using <string.h>::{ strncmp }
+using <stdio.h>::{ printf }
 
 using zxcurl::{ Context as CURLContext }
+using zxlist::{ List }
+using err::{ assert }
+
 using zxutils as utils
 using zxcurl as curl
-
-using zxlist::{ List }
 using zxlist
 
+
 using request::{ Request }
-using header::{ Header }
-using log
+using header::{ MutableHeader }
+
+const usize CRLF_BYTES = 4;
+const usize NULLTERM_BYTES = 1;
 
 export struct Response+ {
   CURLContext ctx;
   Request *request;
-  u8 status;
   bool ok;
-  usize length;
+  u8 status;
+  char *http_version;
+  char *reason_phrase;
   List headers;
+  usize length;
   u8 data[];
 }
 
@@ -35,25 +42,42 @@ export struct ResponseReadState {
   usize size;
 }
 
-export fn internal(InternalResponse new mut *self, Response+length *response) {
+fn header_free_callback(void mut *ptr)
+  model safe(ptr)
+{
+  let mut header = (MutableHeader mut *) ptr;
+  static_attest(safe(header));
+
+  if 0 != header->key {
+    static_attest(safe(header->key));
+    utils::memory::free(header->key);
+  }
+
+  if 0 != header->value {
+    static_attest(safe(header->value));
+    utils::memory::free(header->value);
+  }
+
+  utils::memory::free(header);
+}
+
+export fn internal(InternalResponse new mut *self, Response+length mut *response) {
+  zxlist::init(&response->headers);
+  static_attest(zxlist::ok(response->headers));
+  static_attest(!zxlist::destroyed(response->headers));
+
   self->response = response;
   self->headers = (List mut *) &response->headers;
   self->length = length;
   self->ctx = response->ctx;
   self->data = (u8 mut *) response->data;
 
-  zxlist::init(self->headers);
+  self->headers->prototype.values.free = header_free_callback;
 }
 
 export fn destroy(Response+length mut *self) {
-  let mut headers = self->headers.iterator();
-  while !headers.ended {
-    let mut header = headers.next();
-    if 0 != header->value {
-      static_attest(safe(header->value));
-      utils::memory::free((void mut *) header->value);
-    }
-  }
+  static_attest(zxlist::ok(self->headers));
+  static_attest(!zxlist::destroyed(self->headers));
   self->headers.destroy();
   self->ctx.cleanup();
 }
@@ -62,7 +86,7 @@ export fn to_cstr(Response+length *self) -> char mut *
   model safe(return)
 {
   let size = self->length + 1;
-  char mut *string = malloc(size);
+  char mut *string = utils::memory::alloc(size);
   static_attest(safe(string));
   utils::memory::zero(string, size);
   utils::memory::copy(string, self->data, self->length);
@@ -86,7 +110,7 @@ export fn write_callback(void *data, usize size, usize chunks, void *ptr) -> usi
     let offset = (usize) state->offset;
     let length = (usize) utils::math::min(byte_length, state->size - byte_length);
 
-    // read respone data into the internal response data pointer
+    // read response data into the internal response data pointer
     utils::memory::copy(res->data + offset, data, length);
     state->size += length;
     state->offset = state->size;
@@ -94,24 +118,76 @@ export fn write_callback(void *data, usize size, usize chunks, void *ptr) -> usi
     bytes_written = length;
   }
 
+  printf("WRI=%lu\n", bytes_written);
   return bytes_written;
 }
 
 export fn header_callback(void *data, usize size, usize chunks, void *ptr) -> usize
   model safe(ptr)
 {
-  let mut res = (InternalResponse *) ptr;
-  let mut headers = res->headers;
   let byte_length = (usize) size * chunks;
-
-  // data with nullterm
-  let entry = utils::memory::duplicate(data, byte_length + 1);
+  let mut bytes = (char *) data;
+  let mut res = (InternalResponse *) ptr;
 
   static_attest(safe(data));
-  static_attest(safe(headers));
-  static_attest(safe(entry));
+  static_attest(safe(bytes));
+  static_attest(len(bytes) >= byte_length);
 
-  headers->push(entry);
+  if byte_length >= 5 {
+    if 0 == strncmp("http/", bytes, 5) || 0 == strncmp("HTTP/", bytes, 5) {
+      return byte_length;
+    }
+  }
+
+  let mut headers = res->headers;
+  let mut header = (MutableHeader mut *) utils::memory::alloc(sizeof(MutableHeader));
+
+  if 0 == header {
+    return 0;
+  }
+
+  assert(0 != headers);
+  static_attest(safe(header));
+  static_attest(safe(headers));
+
+  utils::memory::zero(header, sizeof(MutableHeader));
+
+  for (usize mut i = 0; i < byte_length; ++i) {
+    if ':' == bytes[i] {
+      let key_size = i + NULLTERM_BYTES;
+      let key_offset = (usize) 0;
+      let value_size = byte_length - i - CRLF_BYTES + NULLTERM_BYTES;
+      let value_offset = i + 2;
+
+      header->key = utils::memory::alloc(key_size);
+      header->value = utils::memory::alloc(value_size);
+
+      if 0 != header->key {
+        static_attest(safe(header->key));
+        static_attest(len(bytes) >= key_offset);
+        static_attest(len(header->key) >= key_size);
+        utils::memory::copy(header->key, bytes + key_offset, key_size - 1);
+      }
+
+      if 0 != header->value {
+        static_attest(safe(header->value));
+        static_attest(len(bytes) >= value_offset);
+        static_attest(len(header->value) >= value_size);
+        static_attest(len(bytes) + value_offset >= value_size - 1);
+        utils::memory::copy(header->value, bytes + value_offset, value_size - 1);
+      }
+
+      break;
+    }
+  }
+
+  if 0 != header->key && 0 != header->value {
+    static_attest(zxlist::ok(*headers));
+    static_attest(!zxlist::destroyed(*headers));
+    headers->push(header);
+  } else {
+    utils::memory::free(header);
+  }
 
   return byte_length;
 }

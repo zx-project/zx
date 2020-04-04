@@ -17,7 +17,7 @@ clean:
 	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) clean
 
 test:
-	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) test
+	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) test $(TEST)
 
 bench:
 	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) bench

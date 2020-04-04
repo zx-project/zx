@@ -24,7 +24,7 @@ fn main() -> int {
     assert(&node == list.find(&nested));
 
     nested.destroy();
-    node.destroy();
+    //node.destroy();
     list.destroy();
   }
 

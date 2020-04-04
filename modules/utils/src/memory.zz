@@ -7,30 +7,17 @@ fntype AllocFunction(usize size) -> void mut *;
 static FreeFunction mut free_function = (FreeFunction) stdlib::free;
 static AllocFunction mut alloc_function = (AllocFunction) stdlib::malloc;
 
-export fn copy(void mut * mut dst, void *src, usize size) -> void *
-  model safe(dst)
-  model safe(src)
-  model safe(return)
-{
-  static_attest(safe(dst));
-  static_attest(safe(src));
-  dst = memcpy(dst, src, size);
-  static_attest(safe(dst));
-  return dst;
+export fn set_alloc(AllocFunction new_alloc_function) {
+  alloc_function = new_alloc_function;
 }
 
-export fn zero(void mut * mut dst, usize length) -> void *
-  model safe(dst)
-  model safe(return)
-{
-  static_attest(safe(dst));
-  dst = memset(dst, 0, length);
-  static_attest(safe(dst));
-  return dst;
+export fn set_free(FreeFunction new_free_function) {
+  free_function = new_free_function;
 }
 
-export fn alloc(usize length) -> void *
+export fn alloc(usize length) -> void mut *
   model safe(return)
+  model safe(alloc_function)
 {
   static_attest(safe(alloc_function));
   void mut *ptr = alloc_function(length);
@@ -42,25 +29,44 @@ export fn alloc(usize length) -> void *
 
 export fn free(void mut *ptr)
   model safe(ptr)
+  model safe(free_function)
 {
   static_attest(safe(ptr));
   static_attest(safe(free_function));
   free_function(ptr);
 }
 
+export fn copy(void mut * mut dst, void *src, usize size) -> void mut *
+  model safe(dst)
+  model safe(src)
+  model safe(return)
+{
+  static_attest(safe(dst));
+  static_attest(safe(src));
+  dst = memcpy(dst, src, size);
+  static_attest(safe(dst));
+  return dst;
+}
+
+export fn zero(void mut * mut dst, usize length) -> void mut *
+  model safe(dst)
+  model safe(return)
+{
+  static_attest(safe(dst));
+  dst = memset(dst, 0, length);
+  static_attest(safe(dst));
+  return dst;
+}
+
 export fn duplicate(void *src, usize size) -> void * {
   return copy((void mut *) alloc(size), src, size);
 }
 
-export fn nonzero(void mut *ptr) -> bool
-{
-  return 0 != ptr;
+export fn nonzero(void mut *ptr) -> bool {
+  let is_nonzero = 0 != ptr;
+  if is_nonzero {
+    static_attest(safe(ptr));
+  }
+  return is_nonzero;
 }
 
-export fn set_alloc(AllocFunction new_alloc_function) {
-  alloc_function = new_alloc_function;
-}
-
-export fn set_free(FreeFunction new_free_function) {
-  free_function = new_free_function;
-}

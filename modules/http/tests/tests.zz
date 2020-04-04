@@ -1,23 +1,24 @@
 using <stdlib.h>::{ free }
 using <stdio.h>::{ printf }
 
-using zxhttp::{ RequestOptions, Response }
+using zxhttp::{ RequestOptions, Response, Header }
 using zxhttp as http
 
 fn main() -> int {
-  new+4096 res = http::head(RequestOptions { url: "https://example.com" });
+  new+4096 res = http::get(RequestOptions { url: "https://google.com" });
   let mut headers = res.headers.iterator();
 
   while !headers.ended {
     let header = headers.next();
     if 0 != header->value {
       static_attest(safe(header->value));
-      printf("%s", header->value);
+      let tuple = (Header *) header->value;
+      printf("%s: %s\n", tuple->key, tuple->value);
     }
   }
 
   let mut string = res.to_cstr();
-  printf("%s", string);
+  printf("OUT=%s", string);
   free(string);
 
   res.destroy();

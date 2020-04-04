@@ -28,6 +28,7 @@ fn test_list() {
   list.destroy();
 }
 
+
 fn test_list_rpush() {
   new mut list = zxlist::init();
   static_attest(safe(list));
