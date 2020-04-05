@@ -1,6 +1,0 @@
-using <stdio.h>::{printf};
-
-export fn main() -> int {
-    printf("hello zx-cli\n");
-    return 0;
-}

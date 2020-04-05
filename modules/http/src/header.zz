@@ -1,9 +1,11 @@
 export struct Header {
   char *key;
   char *value;
+  void *owner; // `Request` or `Response+`
 }
 
 export struct MutableHeader {
   char mut * mut key;
   char mut * mut value;
+  void mut * mut owner; // `Request` or `Response+`
 }

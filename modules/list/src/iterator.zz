@@ -97,10 +97,12 @@ export fn next(Iterator mut *self) -> Node mut *
   model ok(*self)
   model safe(self)
   model safe(return)
+  model safe(return->value)
   model changed(*self)
   model !destroyed(*self)
 
   where ok(*self)
+  where false == self->ended
   where !destroyed(*self)
 {
   let node = self->node;
@@ -117,8 +119,10 @@ export fn next(Iterator mut *self) -> Node mut *
     self->ended = true;
   }
 
-  static_attest(ok(*self));
   static_attest(safe(node));
+  static_attest(safe(node->value));
+
+  static_attest(ok(*self));
   static_attest(changed(*self));
   static_attest(!destroyed(*self));
 

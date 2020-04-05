@@ -1,27 +1,38 @@
-using <stdlib.h>::{ free }
 using <stdio.h>::{ printf }
 
 using zxhttp::{ RequestOptions, Response, Header }
+
+using zxutils as utils
 using zxhttp as http
 
 fn main() -> int {
-  new+4096 res = http::get(RequestOptions { url: "https://google.com" });
-  let mut headers = res.headers.iterator();
+  // `4000000` byte pool size
+  new+4000000 res = http::get(RequestOptions { url: "https://github.com" });
 
+  // TODO
+  //let mut stream = http::stream(RequestOptions { url: "https://github.com" });
+  //stream.on(http::events::HEADER, onheader)
+  //stream.on(http::events::DATA, ondata)
+
+  // iterate and output response headers
+  let mut headers = res.headers.iterator();
   while !headers.ended {
     let header = headers.next();
-    if 0 != header->value {
-      static_attest(safe(header->value));
-      let tuple = (Header *) header->value;
-      printf("%s: %s\n", tuple->key, tuple->value);
-    }
+    let tuple = (Header *) header->value;
+    printf("%s: %s\n", tuple->key, tuple->value);
   }
 
-  let mut string = res.to_cstr();
-  printf("OUT=%s", string);
-  free(string);
+  printf("%s", res.data);
 
   res.destroy();
 
   return 0;
 }
+
+//fn onheader(Header *header) {
+  // TODO
+//}
+
+//fn ondata(u8 *bytes, usize length) {
+  // TODO
+//}

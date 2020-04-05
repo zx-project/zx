@@ -1,20 +1,24 @@
-zx-project/curl
-===============
+zx/curl
+=======
 
 > ZZ bindings for libcurl for use in **zx**
 
-## Status
-
-> **WIP**
-
 ## Installation
 
-> [Still trying to figure that out](https://github.com/aep/zz/issues/34)
+In your project's `zz.toml` file:
+
+```toml
+[repos]
+zx = https://github.com/zx-project/zx.git
+
+[dependencies]
+curl = "*"
+```
 
 ## Usage
 
 ```c++
-using curl
+using zxcurl as curl
 
 fn main() -> int {
   new request = curl::easy::init();

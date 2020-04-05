@@ -752,9 +752,18 @@ export fn at(List mut *self, int index) -> Node mut *
     return 0;
   }
 
-  let mut i = index;
+  if 0 == self->head && 0 == self->tail {
+    return 0;
+  }
+
   let mut it = self->iterator();
+
+  if it.ended {
+    return 0;
+  }
+
   let mut node = it.next();
+  let mut i = index;
 
   if index < 0 {
     it.direction = (Direction) TAIL;

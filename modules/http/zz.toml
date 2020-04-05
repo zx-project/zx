@@ -11,7 +11,9 @@ lflags = []
 default = []
 
 [dependencies]
-err = "1"
+err = "*"
+pool = "*"
+
 curl = "*"
 list = "*"
 utils = "*"

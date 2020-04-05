@@ -3,6 +3,7 @@ using zxutils as utils
 using zxcurl as curl
 
 using zxlist
+using pool
 
 using response::{ InternalResponse, Response }
 using response
@@ -36,7 +37,7 @@ export fn request(Response+length new mut *self, RequestOptions request_opts)
 
   configure_curl(ctx, &internal, opts);
 
-  self->length = length;
+  self->length = 0;
   self->ctx = ctx;
 
   ctx.perform();
