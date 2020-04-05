@@ -1,13 +1,13 @@
 using <stdio.h>::{ printf }
 
-using zxhttp::{ RequestOptions, Response, Header }
+using zxhttp::{ RequestOptions }
 
 using zxutils as utils
 using zxhttp as http
 
 fn main() -> int {
-  // `4000000` byte pool size
-  new+4000000 res = http::get(RequestOptions { url: "https://github.com" });
+  // Read 4096 bytes
+  new+4096 res = http::get(RequestOptions { url: "https://github.com" });
 
   // TODO
   //let mut stream = http::stream(RequestOptions { url: "https://github.com" });
@@ -18,21 +18,13 @@ fn main() -> int {
   let mut headers = res.headers.iterator();
   while !headers.ended {
     let header = headers.next();
-    let tuple = (Header *) header->value;
-    printf("%s: %s\n", tuple->key, tuple->value);
+    printf("< %s: %s\n", header->key, header->value);
   }
 
   printf("%s", res.data);
 
+  // needed to destroy libcurl
   res.destroy();
 
   return 0;
 }
-
-//fn onheader(Header *header) {
-  // TODO
-//}
-
-//fn ondata(u8 *bytes, usize length) {
-  // TODO
-//}

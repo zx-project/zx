@@ -5,8 +5,8 @@ using <stdio.h>::{ printf }
 using zxlist
 
 fn main() -> int {
-  new mut list = zxlist::init();
-  new mut copy = zxlist::init();
+  new+5 mut list = zxlist::make();
+  new+5 mut copy = zxlist::make();
 
   static_attest(safe(list));
   static_attest(safe(copy));

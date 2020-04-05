@@ -2,6 +2,7 @@ using <assert.h>::{ assert }
 using <string.h>::{ strcmp }
 using <stdio.h>::{ printf }
 
+using zxlist::{ List, Node }
 using zxlist
 
 fn main() -> int {
@@ -21,7 +22,7 @@ fn main() -> int {
 }
 
 fn test_list() {
-  new list = zxlist::init();
+  new+1 list = zxlist::make();
   assert(0 == list.head);
   assert(0 == list.tail);
   assert(0 == list.length);
@@ -30,7 +31,7 @@ fn test_list() {
 
 
 fn test_list_rpush() {
-  new mut list = zxlist::init();
+  new+1 mut list = zxlist::make();
   static_attest(safe(list));
 
   let node = list.rpush("hello");
@@ -42,7 +43,7 @@ fn test_list_rpush() {
 }
 
 fn test_list_lpush() {
-  new mut list = zxlist::init();
+  new+1 mut list = zxlist::make();
   static_attest(safe(list));
 
   let node = list.lpush("hello");
@@ -54,15 +55,15 @@ fn test_list_lpush() {
 }
 
 fn test_list_rpop() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
   let first = list.rpush("hello");
-  let mut node = list.rpush("world");
+  let node = (Node mut *) list.rpush("world");
   static_attest(safe(node));
   assert(2 == list.length);
 
-  assert(node == list.rpop());
+  assert(0 == strcmp("world", list.rpop()));
   assert(1 == list.length);
   assert(first == list.head);
   assert(first == list.tail);
@@ -72,15 +73,15 @@ fn test_list_rpop() {
 }
 
 fn test_list_lpop() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
-  let mut node = list.rpush("hello");
+  let node = (Node mut *) list.rpush("hello");
   let second = list.rpush("world");
 
   static_attest(safe(node));
   assert(2 == list.length);
-  assert(node == list.lpop());
+  assert(0 == strcmp("hello", list.lpop()));
   assert(1 == list.length);
   assert(second == list.head);
   assert(second == list.tail);
@@ -90,10 +91,10 @@ fn test_list_lpop() {
 }
 
 fn test_list_find() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
-  let mut node = list.rpush("hello");
+  let node = (Node mut *) list.rpush("hello");
   list.rpush("world");
   static_attest(safe(node));
 
@@ -107,7 +108,7 @@ fn test_list_find() {
 }
 
 fn test_list_at() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
   let hello = list.rpush("hello");
@@ -120,7 +121,7 @@ fn test_list_at() {
 }
 
 fn test_list_remove() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
   list.rpush("hello");
@@ -139,15 +140,15 @@ fn test_list_remove() {
 }
 
 fn test_list_pop() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
   list.rpush("hello");
-  let mut node = list.rpush("world");
+  let node = (Node mut *) list.rpush("world");
   static_attest(safe(node));
   assert(2 == list.length);
 
-  assert(node == list.pop());
+  assert(0 == strcmp("world", list.pop()));
   assert(1 == list.length);
 
   node->destroy();
@@ -155,14 +156,14 @@ fn test_list_pop() {
 }
 
 fn test_list_push() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
   list.push("hello");
-  let mut node = list.push("world");
+  let node = (Node mut *) list.push("world");
   static_attest(safe(node));
   assert(2 == list.length);
-  assert(node == list.pop());
+  assert(0 == strcmp("world", list.pop()));
   assert(1 == list.length);
 
   node->destroy();
@@ -170,15 +171,15 @@ fn test_list_push() {
 }
 
 fn test_list_shift() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
-  let mut node = list.push("hello");
+  let node = (Node mut *) list.push("hello");
   list.push("world");
   static_attest(safe(node));
   assert(2 == list.length);
 
-  assert(node == list.shift());
+  assert(0 == strcmp("hello", list.shift()));
   assert(1 == list.length);
 
   node->destroy();
@@ -186,14 +187,14 @@ fn test_list_shift() {
 }
 
 fn test_list_unshift() {
-  new mut list = zxlist::init();
+  new+2 mut list = zxlist::make();
   static_attest(safe(list));
 
-  let node = list.unshift("hello");
+  let node = (Node mut *) list.unshift("hello");
   assert(1 == list.length);
   static_attest(safe(node));
 
-  assert(node == list.pop());
+  assert(0 == strcmp("hello", list.pop()));
   assert(0 == list.length);
 
   node->destroy();

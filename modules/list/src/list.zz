@@ -1,5 +1,5 @@
 using iterator::{
-  init as init_iterator,
+  make as make_iterator,
   Direction,
   Iterator,
 
@@ -11,8 +11,7 @@ using iterator::{
 }
 
 using node::{
-  alloc as alloc_node,
-  init as init_node,
+  make as make_node,
   Node,
 
   destroyed as node_destroyed,
@@ -37,135 +36,61 @@ export theory changed(List list) -> bool;
 export theory destroyed(List list) -> bool;
 
 /**
- * A free function used to free the value a node points to. This is a
- * NOP function by default.
- */
-export fntype FreeNodeValueFunction(void mut *ptr) -> void;
-
-/**
  * A compare function used to compare pointers when find a node in a list.
  */
 export fntype CompareNodeValueFunction(void *a, void *b) -> bool;
-
-/**
- * A function used to allocate a `Node *` pointer.
- */
-export fntype AllocateNodeFunction() -> Node mut *;
-
-/**
- * A function used to free an allocated `Node *` pointer.
- */
-export fntype FreeNodeFunction(Node mut *node) -> void;
-
-/**
- * A prototype of functions used on list nodes.
- */
-struct ListNodePrototype {
-  FreeNodeFunction free;
-  AllocateNodeFunction alloc;
-}
-
-/**
- * A prototype of functions used on list node values.
- */
-struct ListNodeValuePrototype {
-  FreeNodeValueFunction free;
-  CompareNodeValueFunction compare;
-}
-
-/**
- * A prototype of functions for list nodes and their values.
- */
-export struct ListPrototype {
-  ListNodeValuePrototype values;
-  ListNodePrototype nodes;
-}
 
 /**
  * A structure prototype of list defaults, such as the iterator direction.
  */
 export struct ListDefaults {
   Direction iterator_direction;
+  CompareNodeValueFunction node_compare_function;
 }
 
 /**
  * A doubly linked list suitable for stack allocation.
  */
-export struct List {
+export struct List+ {
   Node mut *head;
   Node mut *tail;
   usize length;
 
-  ListPrototype prototype;
+  CompareNodeValueFunction compare;
   ListDefaults defaults;
+  Node nodes[];
 }
 
 /**
  * A static structure of list configuration defaults.
  */
 static ListDefaults shared_defaults = ListDefaults {
-  iterator_direction: HEAD
+  iterator_direction: HEAD,
+  node_compare_function: default_node_value_compare
 };
 
 /**
- * Creates (allocate) a list node and attaches self to list node.
- * @private
+ * Creates a unlinked node from a given value attached to list.
+ * @example
+ *   new list = zxlist::make();
+ *   let node = list.create_node("hello");
+ *   node->destroy();
  */
-fn create_list_node(List mut *self, void *value) -> Node mut *
+fn create_node(List+L mut *self, void *value) -> Node mut *
   model safe(value)
   model safe(return)
-  model true == return->alloc
-  model safe(self->prototype.nodes.alloc)
   model ok(*self)
   where ok(*self)
+  where self->length < L
 {
-  if 0 != self->prototype.nodes.alloc {
-    static_attest(safe(self->prototype.nodes.alloc));
-  }
+  let length = self->length;
+  let mut node = (Node mut *) &self->nodes[length];
 
-  let mut node = self->prototype.nodes.alloc();
-
-  static_attest(safe(value));
-  static_attest(safe(node));
-
-  init_node(node, value);
+  make_node(node, value);
   node->list = self;
-  node->alloc = true;
 
   static_attest(ok(*self));
-
   return node;
-}
-
-/**
- * The default free function for every list node.
- * @private
- */
-fn default_node_free(Node mut *node)
-  model safe(node)
-{
-  utils::memory::free(node);
-}
-
-/**
- * The default free function for every list node.
- * @private
- */
-fn default_node_allocate() -> Node mut *
-  model safe(return)
-  model true == return->alloc
-{
-  let node = alloc_node();
-  static_attest(safe(node));
-  return node;
-}
-
-/**
- * The default NOP free function for every list node value.
- * @private
- */
-fn default_node_value_free(void mut * mut ptr) {
-  (void) ptr;
 }
 
 /**
@@ -185,12 +110,16 @@ fn default_node_value_compare(void *left, void *right) -> bool
  * `List` constructor. Initializes a `List` pointer.
  * @constructor
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  */
-export fn init(List new mut *self)
-  model safe(self)
+export fn make(List+L new mut *self)
   model ok(*self)
+  model safe(self)
   model !destroyed(*self)
+  model self->length < L
+
+  where safe(self)
+  where L > 0
 {
   if 0 != self {
     static_attest(safe(self));
@@ -198,76 +127,22 @@ export fn init(List new mut *self)
 
   utils::memory::copy(&self->defaults, &shared_defaults, sizeof(ListDefaults));
 
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
-
-  // set default prototype functions
-  self->set_prototype(ListPrototype {
-    nodes: ListNodePrototype {
-      free: default_node_free,
-      alloc: default_node_allocate,
-    },
-
-    values: ListNodeValuePrototype {
-      free: default_node_value_free,
-      compare: default_node_value_compare,
-    }
-  });
+  self->length = 0;
+  self->compare = self->defaults.node_compare_function;
 
   static_attest(ok(*self));
   static_attest(!destroyed(*self));
-}
-
-/**
- * Extend the prototype of the `List` instance.
- * @example
- *   new list = zxlist::init();
- *   list.set_prototype(ListPrototype {
- *     nodes: ListNodePrototype {
- *       free: node_free_function,
- *       alloc: node_allocate_function,
- *     },
- *
- *     values: ListNodeValuePrototype {
- *       free: node_value_free_function,
- *       compare: node_value_compare_function,
- *     }
- *   })
- */
-export fn set_prototype(List require<ok> new mut *self, ListPrototype prototype)
-  model safe(self)
-  model ok(*self)
-  where ok(*self)
-  where !destroyed(*self)
-{
-  if 0 != prototype.nodes.free {
-    self->prototype.nodes.free = prototype.nodes.free;
-  }
-
-  if 0 != prototype.nodes.alloc {
-    self->prototype.nodes.alloc = prototype.nodes.alloc;
-  }
-
-  if 0 != prototype.values.free {
-    self->prototype.values.free = prototype.values.free;
-  }
-
-  if 0 != prototype.values.compare {
-    self->prototype.values.compare = prototype.values.compare;
-  }
-
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
+  static_attest(self->length < L);
 }
 
 /**
  * Destroys list, active iterators, and any allocated nodes
  * still attached to the list.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.destroy();
  */
-export fn destroy(List mut *self)
+export fn destroy(List+L mut *self)
   model safe(self)
   model destroyed(*self)
 
@@ -279,7 +154,7 @@ export fn destroy(List mut *self)
   let mut it = self->iterator();
 
   while !it.ended {
-    let node = it.next();
+    let node = (Node mut *) it.next();
     static_attest(!node_destroyed(*node));
     static_attest(node_ok(*node));
     node->destroy();
@@ -293,7 +168,7 @@ export fn destroy(List mut *self)
  * Creates and returns a stack allocated iterator for a list instance
  * in the default iterator direction.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let it = list.iterator();
  *
  *   while !it.ended {
@@ -302,7 +177,7 @@ export fn destroy(List mut *self)
  *
  *   it.destroy();
  */
-export fn iterator(List mut *self) -> Iterator
+export fn iterator(List+L mut *self) -> Iterator
   model ok(*self)
   model safe(self)
   model !destroyed(*self)
@@ -327,7 +202,7 @@ export fn iterator(List mut *self) -> Iterator
  * Creates and returns a stack allocated iterator for a list instance
  * in the "head" direction.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let it = list.iterator_head();
  *
  *   while !it.ended {
@@ -336,7 +211,7 @@ export fn iterator(List mut *self) -> Iterator
  *
  *   it.destroy();
  */
-export inline fn iterator_head(List mut *self) -> Iterator
+export inline fn iterator_head(List+L mut *self) -> Iterator
   model ok(*self)
   model safe(self)
   model !destroyed(*self)
@@ -357,7 +232,7 @@ export inline fn iterator_head(List mut *self) -> Iterator
  * Creates and returns a stack allocated iterator for a list instance
  * in the "tail" direction.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let it = list.iterator_tail();
  *
  *   while !it.ended {
@@ -366,7 +241,7 @@ export inline fn iterator_head(List mut *self) -> Iterator
  *
  *   it.destroy();
  */
-export inline fn iterator_tail(List mut *self) -> Iterator
+export inline fn iterator_tail(List+t mut *self) -> Iterator
   model ok(*self)
   model safe(self)
   model !destroyed(*self)
@@ -387,7 +262,7 @@ export inline fn iterator_tail(List mut *self) -> Iterator
  * Creates and returns a stack allocated iterator for a list instance
  * in a given direction.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let it = list.iterator_with_direction(zxlist::HEAD);
  *
  *   while !it.ended {
@@ -396,7 +271,7 @@ export inline fn iterator_tail(List mut *self) -> Iterator
  *
  *   it.destroy();
  */
-export fn iterator_with_direction(List mut *self, Direction direction) -> Iterator
+export fn iterator_with_direction(List+L mut *self, Direction direction) -> Iterator
   model ok(*self)
   model safe(self)
   model !destroyed(*self)
@@ -405,7 +280,7 @@ export fn iterator_with_direction(List mut *self, Direction direction) -> Iterat
   where !destroyed(*self)
 {
   attest(self, false);
-  new it = init_iterator(self, direction);
+  new it = make_iterator(self, direction);
   attest(self, false);
   static_attest(iterator_ok(it));
   return it;
@@ -415,11 +290,11 @@ export fn iterator_with_direction(List mut *self, Direction direction) -> Iterat
  * Pushes a value to the right of the list updating the tail returning the
  * newly created list node.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  */
-export fn rpush(List mut *self, void *value) -> Node mut *
+export fn rpush(List+L mut *self, void *value) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -430,9 +305,10 @@ export fn rpush(List mut *self, void *value) -> Node mut *
 
   where ok(*self)
   where !destroyed(*self)
+  where self->length < L
 {
   attest(self, false);
-  let mut node = create_list_node(self, value);
+  let mut node = self->create_node(value);
 
   attest(self, false);
   self->rpush_node(node);
@@ -449,11 +325,11 @@ export fn rpush(List mut *self, void *value) -> Node mut *
  * Pushes a node with a value to the right of the list updating the tail
  * returning the newly created list node.
  * @example
- *   new list = zxlist::init();
- *   let node = zxlist::node::init("hello")
+ *   new list = zxlist::make();
+ *   let node = zxlist::node::make("hello")
  *   list.rpush_node(&node);
  */
-export fn rpush_node(List mut *self, Node mut *node) -> Node mut *
+export fn rpush_node(List+L mut *self, Node mut *node) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -499,11 +375,11 @@ export fn rpush_node(List mut *self, Node mut *node) -> Node mut *
  * Pushes a value to the left of the list updating the head returning the
  * newly created list node.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.lpush("world");
  *   list.lpush("hello");
  */
-export fn lpush(List mut *self, void *value) -> Node mut *
+export fn lpush(List+L mut *self, void *value) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -514,9 +390,10 @@ export fn lpush(List mut *self, void *value) -> Node mut *
 
   where ok(*self)
   where !destroyed(*self)
+  where self->length < L
 {
   attest(self, false);
-  let mut node = create_list_node(self, value);
+  let mut node = self->create_node(value);
 
   attest(self, false);
   self->lpush_node(node);
@@ -533,11 +410,11 @@ export fn lpush(List mut *self, void *value) -> Node mut *
  * Pushes a value to the left of the list updating the head returning the
  * newly created list node.
  * @example
- *   new list = zxlist::init();
- *   let node = zxlist::node::init("hello");
+ *   new list = zxlist::make();
+ *   let node = zxlist::node::make("hello");
  *   list.lpush_node(node);
  */
-export fn lpush_node(List mut *self, Node mut *node) -> Node mut *
+export fn lpush_node(List+L mut *self, Node mut *node) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -585,19 +462,17 @@ export fn lpush_node(List mut *self, Node mut *node) -> Node mut *
  * list will not free any allocated resources for the returned node as it is
  * dereferenced from the list.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.rpush("hello");
  *   list.rpush("world");
- *   let node = list.rpop(); // node with value "world"
+ *   list.rpop(); // "world"
  */
-export fn rpop(List mut *self) -> Node mut *
+export fn rpop(List+L mut *self) -> void *
   model ok(*self)
   model safe(self)
   model safe(return)
   model changed(*self)
   model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
 
   where ok(*self)
   where !destroyed(*self)
@@ -622,13 +497,16 @@ export fn rpop(List mut *self) -> Node mut *
 
   attest(self, true);
 
+  let value = node->value;
+  static_attest(safe(value));
+
   static_attest(node_ok(*node));
   static_attest(!node_destroyed(*node));
   node->deref();
   static_attest(node_ok(*node));
   static_attest(!node_destroyed(*node));
 
-  return node;
+  return value;
 }
 
 /**
@@ -637,19 +515,17 @@ export fn rpop(List mut *self) -> Node mut *
  * list will not free any allocated resources for the returned node as it is
  * dereferenced from the list.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.rpush("hello");
  *   list.rpush("world");
- *   let node = list.lpop(); // node with value "hello"
+ *   list.lpop(); // "hello"
  */
-export fn lpop(List mut *self) -> Node mut *
+export fn lpop(List+L mut *self) -> void *
   model ok(*self)
   model safe(self)
   model safe(return)
   model changed(*self)
   model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
 
   where ok(*self)
   where !destroyed(*self)
@@ -674,13 +550,16 @@ export fn lpop(List mut *self) -> Node mut *
 
   attest(self, true);
 
+  let value = node->value;
+
   static_attest(node_ok(*node));
   static_attest(!node_destroyed(*node));
   node->deref();
   static_attest(node_ok(*node));
   static_attest(!node_destroyed(*node));
+  static_attest(safe(value));
 
-  return node;
+  return value;
 }
 
 /**
@@ -689,22 +568,21 @@ export fn lpop(List mut *self) -> Node mut *
  * `list.prototype.values.compare` to a `CompareNodeValueFunction` type, otherwise
  * simple pointer comparison is used by default.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   let node = list.find("world"); // node with value "world"
  */
-export fn find(List mut *self, void *value) -> Node mut *
+export fn find(List+L mut *self, void *value) -> Node *
   model ok(*self)
   model safe(self)
-  model safe(self->prototype.values.compare)
+  model safe(self->compare)
   model !destroyed(*self)
 
   where ok(*self)
   where !destroyed(*self)
 {
-  static_attest(safe(self->prototype.values.compare));
-  let compare = self->prototype.values.compare;
+  static_attest(safe(self->compare));
 
   attest(self, false);
   let mut tail = self->iterator_tail();
@@ -718,11 +596,11 @@ export fn find(List mut *self, void *value) -> Node mut *
     let left = head.next();
     let right = tail.next();
 
-    if compare(value, left->value) {
+    if self->compare(value, left->value) {
       return left;
     }
 
-    if compare(value, right->value) {
+    if self->compare(value, right->value) {
       return right;
     }
   }
@@ -733,12 +611,12 @@ export fn find(List mut *self, void *value) -> Node mut *
 /**
  * Finds and returns the list node at a given index.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   let node = list.at(1); // node with value "world"
  */
-export fn at(List mut *self, int index) -> Node mut *
+export fn at(List+L mut *self, int index) -> Node *
   model ok(*self)
   model safe(self)
   model !destroyed(*self)
@@ -788,16 +666,15 @@ export fn at(List mut *self, int index) -> Node mut *
 
 /**
  * Finds a list node that points to a given value and removes it from the
- * list, freeing any allocated resources. This function will call
- * `list.prototype.nodes.free()`.
+ * list.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   list.remove("world");
  *   assert(1 == list.length);
  */
-export fn remove(List mut *self, void *value)
+export fn remove(List+L mut *self, void *value)
   model ok(*self)
   model safe(self)
   model safe(value)
@@ -808,7 +685,7 @@ export fn remove(List mut *self, void *value)
   where !destroyed(*self)
 {
   attest(self, false);
-  let mut node = self->find(value);
+  let node = (Node mut *) self->find(value);
 
   if 0 != node {
     static_attest(safe(node));
@@ -824,11 +701,11 @@ export fn remove(List mut *self, void *value)
  * Removes a node from the list, destroying it, updating links and list
  * length.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let node = list.push("hello");
  *   list.remove_node(node);
  */
-export fn remove_node(List mut *self, Node mut *node)
+export fn remove_node(List+L mut *self, Node mut *node)
   model ok(*self)
   model safe(self)
   model safe(node)
@@ -856,13 +733,13 @@ export fn remove_node(List mut *self, Node mut *node)
 /**
  * Returns a boolean indicating if a list contains a value.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.push("hello");
  *   if list.contains("hello") {
  *     list.push("world");
  *   }
  */
-export fn contains(List mut *self, void *value) -> bool
+export fn contains(List+L mut *self, void *value) -> bool
   model ok(*self)
   model safe(self)
   model safe(value)
@@ -885,14 +762,14 @@ export fn contains(List mut *self, void *value) -> bool
 /**
  * Returns a boolean indicating if a list contains a list node.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let hello = list.push("hello");
  *   if list.contains_node(hello) {
  *     let world = list.create_node("world");
  *     list.push_node(world);
  *   }
  */
-export fn contains_node(List mut *self, Node *node) -> bool
+export fn contains_node(List+L mut *self, Node *node) -> bool
   model ok(*self)
   model safe(node)
   model safe(self)
@@ -920,40 +797,36 @@ export fn contains_node(List mut *self, Node *node) -> bool
 /**
  * An alias to `list.rpop()`.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.rpush("hello");
  *   list.rpush("world");
- *   let node = list.pop(); // node with value "world"
+ *   list.pop(); // "world"
  */
-export fn pop(List mut *self) -> Node mut *
+export fn pop(List+L mut *self) -> void *
   model ok(*self)
   model safe(self)
   model safe(return)
   model changed(*self)
   model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
 
   where ok(*self)
   where !destroyed(*self)
 {
   attest(self, false);
-  let node = self->rpop();
+  let value = self->rpop();
   attest(self, true);
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
+  static_attest(safe(value));
+  return value;
 }
 
 /**
  * An alias to `list.rpush()`.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.push("hello");
  *   list.push("world");
  */
-export fn push(List mut *self, void *value) -> Node mut *
+export fn push(List+L mut *self, void *value) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -964,6 +837,7 @@ export fn push(List mut *self, void *value) -> Node mut *
 
   where ok(*self)
   where !destroyed(*self)
+  where self->length < L
 {
   attest(self, false);
   let node = self->rpush(value);
@@ -977,11 +851,11 @@ export fn push(List mut *self, void *value) -> Node mut *
 /**
  * An alias to `list.rpush_node()`.
  * @example
- *   new list = zxlist::init();
- *   let node = zxlist::node::init("hello")
+ *   new list = zxlist::make();
+ *   let node = zxlist::node::make("hello")
  *   list.push_node(&node);
  */
-export fn push_node(List mut *self, Node mut *node) -> Node mut *
+export fn push_node(List+L mut *self, Node mut *node) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -992,6 +866,7 @@ export fn push_node(List mut *self, Node mut *node) -> Node mut *
 
   where ok(*self)
   where !destroyed(*self)
+  where self->length < L
 {
   attest(self, false);
   self->rpush_node(node);
@@ -1005,40 +880,36 @@ export fn push_node(List mut *self, Node mut *node) -> Node mut *
 /**
  * An alias to `list.lpop()`.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.push("hello");
  *   list.push("world");
- *   let node = list.shift(); // node with value "hello"
+ *   list.shift(); // "hello"
  */
-export fn shift(List mut *self) -> Node mut *
+export fn shift(List+L mut *self) -> void *
   model ok(*self)
   model safe(self)
   model safe(return)
   model changed(*self)
   model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
 
   where ok(*self)
   where !destroyed(*self)
 {
   attest(self, false);
-  let node = self->lpop();
+  let value = self->lpop();
   attest(self, true);
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
+  static_attest(safe(value));
+  return value;
 }
 
 /**
  * An alias to `list.lpush()`.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   list.unshift("world");
  *   list.unshift("hello");
  */
-export fn unshift(List mut *self, void *value) -> Node mut *
+export fn unshift(List+L mut *self, void *value) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -1049,6 +920,7 @@ export fn unshift(List mut *self, void *value) -> Node mut *
 
   where ok(*self)
   where !destroyed(*self)
+  where self->length < L
 {
   attest(self, false);
   let node = self->lpush(value);
@@ -1062,11 +934,11 @@ export fn unshift(List mut *self, void *value) -> Node mut *
 /**
  * An alias to `list.lpush_node()`.
  * @example
- *   new list = zxlist::init();
- *   let node = zxlist::node::init("hello");
+ *   new list = zxlist::make();
+ *   let node = zxlist::node::make("hello");
  *   list.unshift_node(node);
  */
-export fn unshift_node(List mut *self, Node mut *node) -> Node mut *
+export fn unshift_node(List+L mut *self, Node mut *node) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -1077,6 +949,7 @@ export fn unshift_node(List mut *self, Node mut *node) -> Node mut *
 
   where ok(*self)
   where !destroyed(*self)
+  where self->length < L
 {
   attest(self, false);
   self->lpush_node(node);
@@ -1088,44 +961,18 @@ export fn unshift_node(List mut *self, Node mut *node) -> Node mut *
 }
 
 /**
- * Creates a unlinked node from a given value attached to list.
- * @example
- *   new list = zxlist::init();
- *   let node = list.create_node("hello");
- *   node->destroy();
- */
-export fn create_node(List mut *self, void *value) -> Node mut *
-  model ok(*self)
-  model safe(self)
-  model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
-{
-  attest(self, false);
-  let node = create_list_node(self, value);
-  attest(self, false);
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
-}
-
-/**
  * List model state attestations.
  */
-export fn attest(List mut *self, bool did_change)
+export fn attest(List+L mut *self, bool did_change)
   model ok(*self)
   model safe(self)
   model changed(*self)
   model !destroyed(*self)
+  model self->length < L
 {
   if 0 != self { static_attest(safe(self)); }
   if did_change { static_attest(changed(*self)); }
   static_attest(ok(*self));
   static_attest(!destroyed(*self));
+  static_attest(self->length < L);
 }

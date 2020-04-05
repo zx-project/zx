@@ -20,8 +20,6 @@ export struct Request {
 }
 
 export fn request(Response+length new mut *self, RequestOptions request_opts)
-  model zxlist::ok(self->headers)
-  model !zxlist::destroyed(self->headers)
 
   where nullterm(request_opts.url)
   where request_opts.method > 0
@@ -42,14 +40,10 @@ export fn request(Response+length new mut *self, RequestOptions request_opts)
 
   ctx.perform();
 
-  static_attest(zxlist::ok(self->headers));
-  static_attest(!zxlist::destroyed(self->headers));
 }
 
 export fn get(Response+length new mut *self, RequestOptions opts)
   model 0 == opts.method
-  model zxlist::ok(self->headers)
-  model !zxlist::destroyed(self->headers)
 {
   static_attest(length > 0);
   static_attest(nullterm(opts.url));
@@ -63,8 +57,6 @@ export fn get(Response+length new mut *self, RequestOptions opts)
 
 export fn head(Response+length new mut *self, RequestOptions opts)
   model 0 == opts.method
-  model zxlist::ok(self->headers)
-  model !zxlist::destroyed(self->headers)
 {
   static_attest(length > 0);
   static_attest(nullterm(opts.url));

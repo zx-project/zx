@@ -1,4 +1,4 @@
-using list::{ FreeNodeFunction, List }
+using list::{ List }
 
 using zxutils as utils
 
@@ -26,15 +26,14 @@ export struct Node {
   List mut *list;
   Node mut *prev;
   Node mut *next;
-  bool alloc;
 }
 
 /**
  * `Node` constructor. Initializes a `Node` pointer with a value pointer.
  * @example
- *   let node = zxlist::node::init();
+ *   let node = zxlist::node::make();
  */
-export fn init(Node new mut *self, void *value) -> Node mut *
+export fn make(Node new mut *self, void *value) -> Node mut *
   model ok(*self)
   model safe(self)
   model safe(value)
@@ -60,51 +59,8 @@ export fn init(Node new mut *self, void *value) -> Node mut *
   return self;
 }
 
-// noop
-fn free_noop(Node mut *node) {
-  (void) node;
-}
-
 /**
- * Allocates and returns memory for an uninitialized `Node` pointer.
- * Calls `zxutils::memory::alloc()` internally and therefore
- * returns memory that must be free'd.
- * @example
- *  let mut node = zxlist::node::alloc();
- *  zxutils::memory::free(node);
- */
-export fn alloc() -> Node mut *
-  model safe(return)
-  model true == return->alloc
-{
-  let node = (Node mut *) utils::memory::alloc(sizeof(Node));
-  static_attest(safe(node));
-  node->alloc = true;
-  return node;
-}
-
-/**
- * Allocates and initializes a new `Node` pointer.
- * Calls `zxutils::memory::alloc()` internally and therefore
- * returns memory that must be free'd.
- */
-export fn create(void *value) -> Node mut *
-  model ok(*return)
-  model safe(value)
-  model safe(return)
-  model !destroyed(*node)
-{
-  static_attest(safe(value));
-  let node = init(alloc(), value);
-  static_attest(ok(*node));
-  static_attest(!destroyed(*node));
-  static_attest(safe(node));
-  return node;
-}
-
-/**
- * Destroys a list node, dereferencing any links, and free any possible
- * resources, including the node itself.
+ * Destroys a list node, dereferencing any links,
  * @example
  *   let node = list.pop();
  *   node->destroy();
@@ -117,39 +73,10 @@ export fn destroy(Node mut *self)
   where safe(self)
   where !destroyed(*self)
 {
-  static_attest(safe(free_noop));
-
-  let list = self->list;
-  let value = self->value;
-  let mut free_impl = (FreeNodeFunction) free_noop;
-
-  if 0 != list {
-    static_attest(safe(list));
-    if 0 != list->prototype.values.free {
-      static_attest(safe(list->prototype.values.free));
-      list->prototype.values.free((void mut *) value);
-    }
-  }
-
   static_attest(ok(*self));
   static_attest(!destroyed(*self));
   self->deref();
-
-  if self->alloc {
-    // use default free if node is orphaned
-    free_impl = (FreeNodeFunction) utils::memory::free;
-
-    if 0 != list {
-      static_attest(safe(list));
-      if 0 != list->prototype.nodes.free {
-        static_attest(safe(list->prototype.nodes.free));
-        free_impl = list->prototype.nodes.free;
-      }
-    }
-  }
-
-  static_attest(safe(free_impl));
-  free_impl(self);
+  utils::memory::zero(self, sizeof(Node));
   static_attest(destroyed(*self));
 }
 
@@ -161,7 +88,7 @@ export fn deref(Node mut *self) -> Node mut *
   model ok(*self)
   model safe(self)
   model changed(*self)
-  model !destroyed(*self)
+  //model !destroyed(*self)
 
   where ok(*self)
   where safe(self)

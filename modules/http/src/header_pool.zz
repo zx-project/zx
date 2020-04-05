@@ -1,0 +1,39 @@
+using header::{ Header }
+using pool::{ Pool }
+using pool
+
+using <stdio.h>::{ printf }
+
+export struct HeaderPool {
+  Pool+1638400 mut pool;
+}
+
+export fn make(HeaderPool new mut *self) -> HeaderPool *
+  model pool::continuous(self->pool)
+{
+  pool::make(&self->pool, sizeof(Header));
+  static_attest(pool::continuous(self->pool));
+  return self;
+}
+
+export fn alloc(HeaderPool mut *self) -> Header mut *
+  model pool::continuous(self->pool)
+  model pool::member(return, &self->pool)
+
+  //where pool::continuous(self->pool)
+{
+  static_attest(pool::continuous(self->pool));
+  let header = self->pool.alloc();
+  static_attest(pool::continuous(self->pool));
+  static_attest(pool::member(header, &self->pool));
+  return header;
+}
+
+export fn free(HeaderPool mut *self, Header *header)
+  model pool::continuous(self->pool)
+  where pool::member(header, &self->pool)
+{
+  static_attest(pool::member(header, &self->pool));
+  self->pool.free(header);
+  static_attest(pool::continuous(self->pool));
+}

@@ -5,15 +5,15 @@ using zxlist
 
 fn main() -> int {
   {
-    new node = zxlist::node::init("hello");
+    new node = zxlist::node::make("hello");
     assert(0 == strcmp("hello", node.value));
     node.destroy();
   }
 
   {
-    new mut list = zxlist::init();
-    new nested = zxlist::node::init("hello");
-    new node = zxlist::node::init(&nested);
+    new+1 mut list = zxlist::make();
+    new nested = zxlist::node::make("hello");
+    new node = zxlist::node::make(&nested);
     static_attest(safe(node));
 
     let value = (zxlist::node::Node *) node.value;
@@ -24,12 +24,14 @@ fn main() -> int {
     assert(&node == list.find(&nested));
 
     nested.destroy();
-    //node.destroy();
+    static_attest(zxlist::node::ok(node));
+    static_attest(!zxlist::node::destroyed(node));
+    node.destroy();
     list.destroy();
   }
 
   {
-    new mut list = zxlist::init();
+    new+5 mut list = zxlist::make();
     let start = list.push("start");
     let middle0 = list.push("middle0");
     let middle1 = list.push("middle1");

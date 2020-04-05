@@ -1,11 +1,93 @@
+using zxutils as utils
+
+using <ctype.h>::{ tolower }
+using <stdio.h>::{ printf }
+
 export struct Header {
-  char *key;
-  char *value;
-  void *owner; // `Request` or `Response+`
+  u8 raw[8192];
+  u8 *key;
+  u8 *value;
 }
 
 export struct MutableHeader {
-  char mut * mut key;
-  char mut * mut value;
-  void mut * mut owner; // `Request` or `Response+`
+  u8 raw[8192];
+}
+
+export fn make(Header new mut *self, u8 *raw, usize length) -> Header *
+  model safe(return)
+{
+  let bytes = (u8 mut *) raw;
+  let mut new_length = length;
+  let mut offset = (usize) 0;
+
+  static_attest(len(bytes) >= length);
+  for (usize mut i = 0; i < length; ++i) {
+    static_attest(i < len(bytes));
+    bytes[i] = (u8) tolower(bytes[i]);
+
+    if ':' == (char) bytes[i] {
+      offset = i;
+
+      static_attest(offset < len(bytes));
+      while (' ' == (char) bytes[offset] || ':' == (char) bytes[offset]) {
+        offset++;
+      }
+
+      static_attest(len(bytes) > new_length);
+      while (
+        '\r' == (char) bytes[new_length] ||
+        '\n' == (char) bytes[new_length] ||
+        ' ' == (char) bytes[new_length]
+        || 0 == bytes[new_length]
+        ) {
+        new_length--;
+      }
+
+      new_length++;
+      bytes[i] = 0;
+      break;
+    }
+  }
+
+  static_attest(offset < len(bytes));
+  static_attest(new_length < len(bytes));
+  static_attest(len(self->raw) > offset);
+
+  bytes[new_length] = 0;
+  utils::memory::zero(self->raw, sizeof(self->raw));
+  utils::memory::copy(self->raw, bytes, offset);
+  utils::memory::copy(self->raw + offset, bytes + offset, length - offset);
+
+  return self;
+}
+
+export fn init(Header mut *self) -> Header *
+  model safe(return)
+{
+  usize mut offset = 0;
+  u8 mut *bytes = (u8 mut *) self->raw;
+  let length = (usize) sizeof(self->raw);
+
+  static_attest(len(bytes) >= length);
+  for (usize mut i = 0; i < length; ++i) {
+    static_attest(i < len(bytes));
+    if 0 == bytes[i] {
+      offset = i + 1;
+      static_attest(offset < len(bytes));
+      while ' ' == (char) bytes[offset] { offset++; }
+      for (usize mut j = offset; j < length; ++j) {
+        if '\r' == (char) bytes[j] || '\n' == (char) bytes[j] {
+          bytes[j] = 0;
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  static_attest(offset < len(bytes));
+  self->value = (u8 *) bytes + offset;
+  self->key = (u8* ) self->raw;
+
+  return self;
 }

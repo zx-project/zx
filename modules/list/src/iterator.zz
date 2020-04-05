@@ -51,7 +51,7 @@ export struct Iterator {
 /**
  * `Iterator` stack constructor with direction from a list.
  */
-export fn init(
+export fn make(
   Iterator new mut *self,
   List mut *list,
   Direction direction
@@ -87,13 +87,13 @@ export fn init(
 /**
  * Returns a pointer to the next node in the list.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let it = list.iterator();
  *   while !it.ended {
  *     let node = it.next();
  *   }
  */
-export fn next(Iterator mut *self) -> Node mut *
+export fn next(Iterator mut *self) -> Node *
   model ok(*self)
   model safe(self)
   model safe(return)
@@ -132,7 +132,7 @@ export fn next(Iterator mut *self) -> Node mut *
 /**
  * Marks the iterator as "ended".
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let mut it = list.iterator();
  *
  *   while !it.ended {
@@ -167,7 +167,7 @@ export fn end(Iterator mut *self)
 /**
  * Destroys the iterator.
  * @example
- *   new list = zxlist::init();
+ *   new list = zxlist::make();
  *   let it = list.iterator();
  *   it.destroy();
  */

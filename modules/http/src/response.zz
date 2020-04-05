@@ -1,4 +1,6 @@
+using <stdint.h>::{ uintptr_t }
 using <string.h>::{ strncmp }
+using <stdio.h>::{ printf }
 
 using zxcurl::{ Context as CURLContext }
 using zxlist::{ List }
@@ -10,12 +12,13 @@ using zxcurl as curl
 using zxlist
 using pool
 
-using allocator
+using header::{ Header, make as make_header }
+using header_list::{ HeaderList }
 using request::{ Request }
-using header::{ MutableHeader }
 
-const usize CRLF_BYTES = 4;
-const usize NULLTERM_BYTES = 1;
+using header_list
+
+const usize ALIGN = (usize) sizeof(uintptr_t);
 
 export struct Response+ {
   CURLContext ctx;
@@ -24,7 +27,7 @@ export struct Response+ {
   u8 status;
   char *http_version;
   char *reason_phrase;
-  List headers;
+  HeaderList headers;
   usize length;
   u8 *data;
   Pool+ mut pool;
@@ -33,10 +36,9 @@ export struct Response+ {
 export struct InternalResponse {
   CURLContext ctx;
   usize mut * mut length;
-  u8 mut * mut *data;
-  void *response;
   ResponseReadState mut state;
-  List mut *headers;
+  HeaderList mut *headers;
+  u8 mut *data;
   Pool mut *pool;
 }
 
@@ -45,35 +47,27 @@ export struct ResponseReadState {
   usize size;
 }
 
-export fn internal(InternalResponse new mut *self, Response+length mut *response)
-  model zxlist::ok(response->headers)
-  model !zxlist::destroyed(response->headers)
-{
-  zxlist::init(&response->headers);
-  pool::make(&response->pool, 4096);
+export fn internal(InternalResponse new mut *self, Response+length mut *response) {
+  pool::make(&response->pool, 1024); // alloc() not used
+  header_list::make(&response->headers);
 
-  self->response = response;
-  self->headers = (List mut *) &response->headers;
+  static_attest(len(response->pool.pool) > ALIGN);
+  response->data = response->pool.pool + ALIGN;
+
+  self->headers = (HeaderList mut *) &response->headers;
   self->length = (usize mut *) &response->length;
   self->pool = &response->pool;
-  self->data = (u8 mut * mut *) &response->data;
   self->ctx = response->ctx;
 
-  *self->data = 0;
-
-  self->headers->prototype.values.free = header_free_callback;
+  self->data = (u8 mut *) response->data;
 }
 
 export fn destroy(Response+length mut *self)
-  where zxlist::ok(self->headers)
-  where !zxlist::destroyed(self->headers)
 {
-  self->headers.destroy();
   self->ctx.cleanup();
 }
 
-export fn to_cstr(Response+length *self) -> char mut *
-{
+export fn to_cstr(Response+length *self) -> char mut * {
   if 0 == self->data {
     return "";
   }
@@ -92,47 +86,36 @@ export fn write_callback(void *data, usize size, usize chunks, void *ptr) -> usi
   model safe(ptr)
 {
   let mut res = (InternalResponse mut *) ptr;
-  static_attest(safe(res->data));
+
   static_attest(safe(res->pool));
   static_attest(safe(res->length));
-  static_attest(len(res->data) > 0);
 
   let mut state = (ResponseReadState mut *) &res->state;
   let byte_length = (usize) utils::math::min(res->pool->poolsize, size * chunks);
 
-  static_attest(len(res->data) > state->size);
-  static_attest(len(res->data) > state->offset);
-
   if byte_length > 0 {
     let offset = (usize) state->offset;
-    let length = (usize) utils::math::min(byte_length, state->size - byte_length);
-    let mut buffer = (u8 mut *) res->pool->malloc(length + state->size);
+    let mut length = (usize) utils::math::min(byte_length, res->pool->free_bytes());
+    let mut buffer = (u8 mut *) res->pool->malloc(length);
 
     if 0 != buffer {
       static_attest(safe(buffer));
-      utils::memory::zero(buffer, length + state->size);
+      utils::memory::zero(buffer, length);
+      // read response data into the internal response data pointer
+      utils::memory::copy(buffer, data, length);
+      state->size += length;
+      state->offset = state->size;
+
+      *res->length = state->size;
     }
 
-    if 0 != *res->data {
-      static_attest(safe(*res->data));
-      utils::memory::copy(buffer, *res->data, state->size);
+    if 0 == length {
+      static_attest(safe(res->data));
+      static_attest(len(res->data) > state->size);
+      res->data[state->size] = 0;
     }
 
-    // read response data into the internal response data pointer
-    static_attest(len(buffer) > offset);
-    utils::memory::copy(buffer + offset, data, length);
-
-    if 0 != *res->data {
-      static_attest(safe(*res->data));
-      static_attest(pool::member(*res->data, res->pool));
-      res->pool->free(*res->data);
-    }
-
-    state->size += length;
-    state->offset = state->size;
-
-    *res->length = state->size;
-    *res->data = buffer;
+    return length;
   }
 
   return byte_length;
@@ -142,109 +125,39 @@ export fn header_callback(void *data, usize size, usize chunks, void *ptr) -> us
   model safe(ptr)
 {
   let byte_length = (usize) size * chunks;
-  let mut bytes = (char *) data;
+  let mut bytes = (u8 *) data;
   let mut res = (InternalResponse *) ptr;
 
-  static_attest(safe(res));
-  static_attest(safe(res->pool));
-  static_attest(safe(data));
-  static_attest(safe(bytes));
-  static_attest(len(bytes) >= byte_length);
-
+  // @TODO(jwerle): parse and store status line info
   if byte_length >= 5 {
-    if 0 == strncmp("http/", bytes, 5) || 0 == strncmp("HTTP/", bytes, 5) {
+    if
+      0 == strncmp("http/", (char *) bytes, 5) ||
+      0 == strncmp("HTTP/", (char *) bytes, 5)
+    {
       return byte_length;
     }
   }
 
-  let mut headers = res->headers;
-  let mut header = (MutableHeader mut *) res->pool->malloc(sizeof(MutableHeader));
+  if byte_length > 2 {
+    if 0 != res {
+      static_attest(safe(res));
+      if 0 != res->headers {
+        static_attest(safe(res->headers));
+        let mut headers = res->headers;
+        let mut header = (Header mut *) headers->pool.alloc();
 
-  if 0 == header {
-    return 0;
-  }
+        static_attest(safe(header));
+        make_header(header, bytes, byte_length);
 
-  assert(0 != headers);
-  static_attest(safe(header));
-  static_attest(safe(headers));
-
-  utils::memory::zero(header, sizeof(MutableHeader));
-
-  for (usize mut i = 0; i < byte_length; ++i) {
-    if ':' == bytes[i] {
-      let key_size = i + NULLTERM_BYTES;
-      let key_offset = (usize) 0;
-      let value_size = byte_length - i - CRLF_BYTES + NULLTERM_BYTES;
-      let value_offset = i + 2;
-
-      header->key = res->pool->malloc(key_size);
-      header->value = res->pool->malloc(value_size);
-      static_attest(pool::member(header->key, res->pool));
-      static_attest(pool::member(header->value, res->pool));
-      static_attest(safe(header->key));
-      static_attest(safe(header->value));
-      utils::memory::zero(header->key, key_size);
-      utils::memory::zero(header->value, value_size);
-
-      if 0 != header->key {
-        static_attest(safe(header->key));
-        static_attest(len(bytes) >= key_offset);
-        static_attest(len(header->key) >= key_size);
-        utils::memory::copy(header->key, bytes + key_offset, key_size - 1);
+        static_attest(safe(headers));
+        static_attest(safe(headers->list));
+        static_attest(zxlist::ok(headers->list));
+        static_attest(!zxlist::destroyed(headers->list));
+        static_attest(headers->list.length < 100);
+        headers->list.push(header);
       }
-
-      if 0 != header->value {
-        static_attest(safe(header->value));
-        static_attest(len(bytes) >= value_offset);
-        static_attest(len(header->value) >= value_size);
-        static_attest(len(bytes) + value_offset >= value_size - 1);
-        utils::memory::copy(header->value, bytes + value_offset, value_size - 1);
-      }
-
-      break;
     }
-  }
-
-  if 0 != header->key && 0 != header->value {
-    static_attest(zxlist::ok(*headers));
-    static_attest(!zxlist::destroyed(*headers));
-    static_attest(safe(header->key));
-    static_attest(safe(header->value));
-    header->owner = (void mut *) res;
-    headers->push(header);
-  } else {
-    static_attest(safe(res->pool));
-    static_attest(pool::continuous(*res->pool));
-    res->pool->free(header);
   }
 
   return byte_length;
 }
-
-fn header_free_callback(void mut *ptr)
-  model safe(ptr)
-{
-  let mut header = (MutableHeader mut *) ptr;
-  let mut res = (InternalResponse mut *) header->owner;
-  static_attest(safe(header));
-  static_attest(safe(res));
-  static_attest(safe(res->pool));
-
-  if 0 != header->key {
-    static_attest(safe(header->key));
-    //static_attest(pool::continuous(*res->pool));
-    static_attest(pool::member(header->key, res->pool));
-    res->pool->free(header->key);
-  }
-
-  if 0 != header->value {
-    static_attest(safe(header->value));
-    static_attest(pool::continuous(*res->pool));
-    static_attest(pool::member(header->value, res->pool));
-    res->pool->free(header->value);
-  }
-
-  static_attest(pool::member(header, res->pool));
-  res->pool->free(header);
-}
-

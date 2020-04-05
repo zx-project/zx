@@ -1,0 +1,34 @@
+using header_iterator::{ HeaderIterator, make as make_iterator }
+using header_pool::{ HeaderPool }
+using zxlist::{ List, Iterator }
+
+using header_pool
+using zxlist
+
+export struct HeaderList {
+  List+100 mut list;
+  HeaderPool mut pool;
+}
+
+export fn make(HeaderList new mut *self) -> HeaderList * {
+  zxlist::make(&self->list);
+  header_pool::make(&self->pool);
+  return self;
+}
+
+export fn iterator(HeaderList mut *self) -> HeaderIterator
+  model zxlist::ok(self->list)
+  model zxlist::iterator::ok(return.iterator)
+  model !zxlist::iterator::destroyed(return.iterator)
+{
+  static_attest(zxlist::ok(self->list));
+  static_attest(!zxlist::destroyed(self->list));
+  let it = self->list.iterator();
+  new wrap = make_iterator(it);
+  static_attest(safe(wrap.iterator));
+  static_attest(zxlist::ok(self->list));
+  static_attest(!zxlist::destroyed(self->list));
+  static_attest(zxlist::iterator::ok(wrap.iterator));
+  static_attest(!zxlist::iterator::destroyed(wrap.iterator));
+  return wrap;
+}

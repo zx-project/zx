@@ -1,0 +1,28 @@
+using zxlist::iterator::{ make as make_iterator }
+using zxlist::{ List, Iterator }
+using header::{ Header, make as make_header }
+using zxlist
+
+export struct HeaderIterator {
+  Iterator mut iterator;
+  bool ended;
+}
+
+export fn make(HeaderIterator new mut *self, Iterator iterator) -> HeaderIterator * {
+  self->iterator = iterator;
+  self->ended = iterator.ended;
+  return self;
+}
+
+export fn next(HeaderIterator mut *self) -> Header *
+  model safe(return)
+  where false == self->ended
+  where zxlist::iterator::ok(self->iterator)
+  where !zxlist::iterator::destroyed(self->iterator)
+{
+  static_attest(false == self->iterator.ended);
+  let node = self->iterator.next();
+  let header = (Header mut *) node->value;
+  self->ended = self->iterator.ended;
+  return header->init();
+}
