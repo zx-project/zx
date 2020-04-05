@@ -63,23 +63,9 @@ export fn internal(InternalResponse new mut *self, Response+length mut *response
 }
 
 export fn destroy(Response+length mut *self)
+  model safe(self)
 {
   self->ctx.cleanup();
-}
-
-export fn to_cstr(Response+length *self) -> char mut * {
-  if 0 == self->data {
-    return "";
-  }
-
-  let size = self->length + 1;
-  //char mut *string = utils::memory::alloc(size);
-  char mut *string = self->pool.malloc(size);
-  static_attest(safe(string));
-  static_attest(safe(self->data));
-  utils::memory::zero(string, size);
-  utils::memory::copy(string, self->data, self->length);
-  return string;
 }
 
 export fn write_callback(void *data, usize size, usize chunks, void *ptr) -> usize
