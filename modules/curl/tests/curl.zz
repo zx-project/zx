@@ -1,4 +1,3 @@
-using <curl/curl.h> as libcurl
 using <stdio.h>::{ printf }
 
 using zxcurl as curl

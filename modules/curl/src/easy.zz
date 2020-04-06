@@ -67,7 +67,9 @@ fn curl_easy_recv(
   void mut *buffer,
   size_t mut buffer_length,
   size_t mut *bytes_read
-) -> u8 {
+) -> u8
+  where (usize) buffer_length < len(buffer)
+{
   return (u8) libcurl::curl_easy_recv(
     handle,
     buffer,
