@@ -47,7 +47,5 @@ fn main() -> int {
     assert(index == copy.length);
   }
 
-  list.destroy();
-  copy.destroy();
   return 0;
 }

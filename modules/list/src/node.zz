@@ -3,21 +3,6 @@ using list::{ List }
 using zxutils as utils
 
 /**
- * Theory used to prove that a list node was ok.
- */
-export theory ok(Node node) -> bool;
-
-/**
- * Theory used to prove that a list node was changed.
- */
-export theory changed(Node node) -> bool;
-
-/**
- * Theory used to prove that a list node was destroyed.
- */
-export theory destroyed(Node node) -> bool;
-
-/**
  * A node structure to contain pointers to a list node's value,
  * containing List structure, and next/prev nodes.
  */
@@ -33,66 +18,21 @@ export struct Node {
  * @example
  *   let node = zxlist::node::make();
  */
-export fn make(Node new mut *self, void *value) -> Node mut *
-  model ok(*self)
+export fn make(Node new mut *self, void *value)
   model safe(self)
-  model safe(value)
-  model safe(return)
-  model !destroyed(*self)
-  where safe(self)
+  where safe(value)
 {
-  static_attest(safe(self));
-  static_attest(safe(value));
-
   self->prev = 0;
   self->next = 0;
   self->value = value;
-
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
-
-  self->deref();
-
-  static_attest(!destroyed(*self));
-  static_attest(ok(*self));
-
-  return self;
 }
 
 /**
- * Destroys a list node, dereferencing any links,
- * @example
- *   let node = list.pop();
- *   node->destroy();
- */
-export fn destroy(Node mut *self)
-  model safe(self)
-  model destroyed(*self)
-
-  where ok(*self)
-  where safe(self)
-  where !destroyed(*self)
-{
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
-  self->deref();
-  utils::memory::zero(self, sizeof(Node));
-  static_attest(destroyed(*self));
-}
-
-/**
- * Detaches node from list and any dereferences links
+ * Detaches node from list and any unreferences links
  * @protected
  */
-export fn deref(Node mut *self) -> Node mut *
-  model ok(*self)
+export fn unref(Node mut *self) -> Node mut *
   model safe(self)
-  model changed(*self)
-  //model !destroyed(*self)
-
-  where ok(*self)
-  where safe(self)
-  where !destroyed(*self)
 {
   if 0 != self->prev {
     static_attest(safe(self->prev));
@@ -113,11 +53,6 @@ export fn deref(Node mut *self) -> Node mut *
   self->list = 0;
   self->next = 0;
   self->prev = 0;
-
-  static_attest(ok(*self));
-  static_attest(safe(self));
-  static_attest(changed(*self));
-  static_attest(!destroyed(*self));
 
   return self;
 }

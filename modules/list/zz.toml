@@ -12,3 +12,4 @@ default = []
 
 [dependencies]
 utils = "*"
+err = "*"

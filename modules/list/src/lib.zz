@@ -2,19 +2,6 @@ export using iterator
 export using list
 export using node
 
-export using iterator::{
-  Iterator
-}
-
-export using list::{
-  List,
-
-  destroyed,
-  changed,
-  make,
-  ok,
-}
-
-export using node::{
-  Node
-}
+export using iterator::{ Iterator }
+export using list::{ List, make }
+export using node::{ Node }

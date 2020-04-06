@@ -7,7 +7,6 @@ fn main() -> int {
   {
     new node = zxlist::node::make("hello");
     assert(0 == strcmp("hello", node.value));
-    node.destroy();
   }
 
   {
@@ -22,12 +21,6 @@ fn main() -> int {
 
     list.push_node(&node);
     assert(&node == list.find(&nested));
-
-    nested.destroy();
-    static_attest(zxlist::node::ok(node));
-    static_attest(!zxlist::node::destroyed(node));
-    node.destroy();
-    list.destroy();
   }
 
   {
@@ -61,8 +54,6 @@ fn main() -> int {
 
     assert(middle2 == end->prev);
     assert(0 == end->next);
-
-    list.destroy();
   }
   return 0;
 }

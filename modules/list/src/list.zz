@@ -5,35 +5,18 @@ using iterator::{
 
   HEAD,
   TAIL,
-
-  destroyed as iterator_destroyed,
-  ok as iterator_ok,
 }
 
 using node::{
   make as make_node,
   Node,
+}
 
-  destroyed as node_destroyed,
-  ok as node_ok,
+using err::{
+  assert
 }
 
 using zxutils as utils
-
-/**
- * Theory used to prove that a list was ok.
- */
-export theory ok(List list) -> bool;
-
-/**
- * Theory used to prove that a list was changed.
- */
-export theory changed(List list) -> bool;
-
-/**
- * Theory used to prove that a list was destroyed.
- */
-export theory destroyed(List list) -> bool;
 
 /**
  * A compare function used to compare pointers when find a node in a list.
@@ -52,8 +35,8 @@ export struct ListDefaults {
  * A doubly linked list suitable for stack allocation.
  */
 export struct List+ {
-  Node mut *head;
-  Node mut *tail;
+  Node mut unsafe *head;
+  Node mut unsafe *tail;
   usize length;
 
   CompareNodeValueFunction compare;
@@ -74,22 +57,21 @@ static ListDefaults shared_defaults = ListDefaults {
  * @example
  *   new list = zxlist::make();
  *   let node = list.create_node("hello");
- *   node->destroy();
  */
 fn create_node(List+L mut *self, void *value) -> Node mut *
+  model safe(self)
   model safe(value)
   model safe(return)
-  model ok(*self)
-  where ok(*self)
-  where self->length < L
+  model safe(return->value)
+  where safe(value)
 {
+  assert(self->length < L);
   let length = self->length;
   let mut node = (Node mut *) &self->nodes[length];
 
   make_node(node, value);
   node->list = self;
-
-  static_attest(ok(*self));
+  static_attest(safe(node->value));
   return node;
 }
 
@@ -113,55 +95,18 @@ fn default_node_value_compare(void *left, void *right) -> bool
  *   new list = zxlist::make();
  */
 export fn make(List+L new mut *self)
-  model ok(*self)
   model safe(self)
-  model !destroyed(*self)
+  model safe(self->compare)
   model self->length < L
-
-  where safe(self)
   where L > 0
 {
-  if 0 != self {
-    static_attest(safe(self));
-  }
-
   utils::memory::copy(&self->defaults, &shared_defaults, sizeof(ListDefaults));
 
   self->length = 0;
   self->compare = self->defaults.node_compare_function;
 
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
+  static_attest(safe(self->compare));
   static_attest(self->length < L);
-}
-
-/**
- * Destroys list, active iterators, and any allocated nodes
- * still attached to the list.
- * @example
- *   new list = zxlist::make();
- *   list.destroy();
- */
-export fn destroy(List+L mut *self)
-  model safe(self)
-  model destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
-{
-  attest(self, false);
-
-  let mut it = self->iterator();
-
-  while !it.ended {
-    let node = (Node mut *) it.next();
-    static_attest(!node_destroyed(*node));
-    static_attest(node_ok(*node));
-    node->destroy();
-  }
-
-  utils::memory::zero(self, sizeof(List));
-  static_attest(destroyed(*self));
 }
 
 /**
@@ -174,28 +119,12 @@ export fn destroy(List+L mut *self)
  *   while !it.ended {
  *     let node = it.next();
  *   }
- *
- *   it.destroy();
  */
 export fn iterator(List+L mut *self) -> Iterator
-  model ok(*self)
   model safe(self)
-  model !destroyed(*self)
-  model iterator_ok(return)
-  model !iterator_destroyed(return)
-
-  where ok(*self)
-  where !destroyed(*self)
 {
-  attest(self, false);
-
   let defaults = self->defaults;
-  let it = self->iterator_with_direction(defaults.iterator_direction);
-
-  attest(self, false);
-  static_attest(iterator_ok(it));
-  static_attest(!iterator_destroyed(it));
-  return it;
+  return self->iterator_with_direction(defaults.iterator_direction);
 }
 
 /**
@@ -208,24 +137,11 @@ export fn iterator(List+L mut *self) -> Iterator
  *   while !it.ended {
  *     let node = it.next();
  *   }
- *
- *   it.destroy();
  */
 export inline fn iterator_head(List+L mut *self) -> Iterator
-  model ok(*self)
   model safe(self)
-  model !destroyed(*self)
-  model iterator_ok(return)
-  model !iterator_destroyed(return)
-
-  where ok(*self)
-  where !destroyed(*self)
 {
-  attest(self, false);
-  let it = self->iterator_with_direction(HEAD);
-  static_attest(iterator_ok(it));
-  static_attest(!iterator_destroyed(it));
-  return it;
+  return self->iterator_with_direction(HEAD);
 }
 
 /**
@@ -238,24 +154,11 @@ export inline fn iterator_head(List+L mut *self) -> Iterator
  *   while !it.ended {
  *     let node = it.next();
  *   }
- *
- *   it.destroy();
  */
 export inline fn iterator_tail(List+t mut *self) -> Iterator
-  model ok(*self)
   model safe(self)
-  model !destroyed(*self)
-  model iterator_ok(return)
-  model !iterator_destroyed(return)
-
-  where ok(*self)
-  where !destroyed(*self)
 {
-  attest(self, false);
-  let it = self->iterator_with_direction(TAIL);
-  static_attest(iterator_ok(it));
-  static_attest(!iterator_destroyed(it));
-  return it;
+  return self->iterator_with_direction(TAIL);
 }
 
 /**
@@ -268,21 +171,11 @@ export inline fn iterator_tail(List+t mut *self) -> Iterator
  *   while !it.ended {
  *     let node = it.next();
  *   }
- *
- *   it.destroy();
  */
 export fn iterator_with_direction(List+L mut *self, Direction direction) -> Iterator
-  model ok(*self)
   model safe(self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
 {
-  attest(self, false);
   new it = make_iterator(self, direction);
-  attest(self, false);
-  static_attest(iterator_ok(it));
   return it;
 }
 
@@ -295,30 +188,16 @@ export fn iterator_with_direction(List+L mut *self, Direction direction) -> Iter
  *   list.rpush("world");
  */
 export fn rpush(List+L mut *self, void *value) -> Node *
-  model ok(*self)
   model safe(self)
+  model safe(value)
   model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
-  where self->length < L
+  model safe(return->value)
+  model self->length >= 0
+  model self->length <= L
+  where safe(value)
 {
-  attest(self, false);
   let mut node = self->create_node(value);
-
-  attest(self, false);
-  self->rpush_node(node);
-
-  attest(self, true);
-
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
+  return self->rpush_node(node);
 }
 
 /**
@@ -330,43 +209,32 @@ export fn rpush(List+L mut *self, void *value) -> Node *
  *   list.rpush_node(&node);
  */
 export fn rpush_node(List+L mut *self, Node mut *node) -> Node *
-  model ok(*self)
   model safe(self)
+  model safe(node)
   model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
+  model safe(return->value)
+  model self->length >= 0
+  model self->length <= L
+  where safe(node->value)
 {
-  attest(self, false);
-
-  let length = self->length;
-
-  static_attest(safe(node));
-
-  if length > 0 && 0 != self->tail {
+  if self->length > 0 && 0 != self->tail {
     static_attest(safe(self->tail));
+
     node->prev = self->tail;
     node->next = 0;
+    self->length = self->length + 1;
     self->tail->next = node;
     self->tail = node;
   } else {
     node->prev = 0;
     node->next = 0;
+    self->length = 1;
     self->head = node;
     self->tail = node;
   }
 
-  self->length = length + 1;
-
-  attest(self, true);
-
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
+  static_attest(self->length <= L);
+  static_attest(safe(node->value));
 
   return node;
 }
@@ -380,30 +248,16 @@ export fn rpush_node(List+L mut *self, Node mut *node) -> Node *
  *   list.lpush("hello");
  */
 export fn lpush(List+L mut *self, void *value) -> Node *
-  model ok(*self)
   model safe(self)
+  model safe(value)
   model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
-  where self->length < L
+  model safe(return->value)
+  model self->length >= 0
+  model self->length <= L
+  where safe(value)
 {
-  attest(self, false);
   let mut node = self->create_node(value);
-
-  attest(self, false);
-  self->lpush_node(node);
-
-  attest(self, true);
-
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
+  return self->lpush_node(node);
 }
 
 /**
@@ -415,43 +269,33 @@ export fn lpush(List+L mut *self, void *value) -> Node *
  *   list.lpush_node(node);
  */
 export fn lpush_node(List+L mut *self, Node mut *node) -> Node *
-  model ok(*self)
   model safe(self)
+  model safe(node)
   model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
+  model safe(return->value)
+  model self->length >= 0
+  model self->length <= L
+  where safe(node->value)
 {
-  attest(self, false);
-
-  let length = self->length;
-
-  static_attest(safe(node));
-
-  if length > 0 && 0 != self->head {
+  if self->length > 0 && 0 != self->head {
     static_attest(safe(self->head));
+
     node->next = self->head;
     node->prev = 0;
+    self->length = self->length + 1;
     self->head->prev = node;
     self->head = node;
+
   } else {
     node->prev = 0;
     node->next = 0;
+    self->length = 1;
     self->head = node;
     self->tail = node;
   }
 
-  self->length = length + 1;
-
-  attest(self, true);
-
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
+  static_attest(self->length <= L);
+  static_attest(safe(node->value));
 
   return node;
 }
@@ -460,7 +304,7 @@ export fn lpush_node(List+L mut *self, Node mut *node) -> Node *
  * Pops and returns a node with its value from the right of the list updating
  * the tail. The returned node's memory must be managed by the caller as the
  * list will not free any allocated resources for the returned node as it is
- * dereferenced from the list.
+ * unreferenced from the list.
  * @example
  *   new list = zxlist::make();
  *   list.rpush("hello");
@@ -468,17 +312,10 @@ export fn lpush_node(List+L mut *self, Node mut *node) -> Node *
  *   list.rpop(); // "world"
  */
 export fn rpop(List+L mut *self) -> void *
-  model ok(*self)
   model safe(self)
-  model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
+  model self->length >= 0
+  model self->length <= L
 {
-  attest(self, false);
-
   let length = self->length;
   let node = self->tail;
 
@@ -489,22 +326,23 @@ export fn rpop(List+L mut *self) -> void *
     self->length = length - 1;
     self->tail = node->prev;
     self->tail->next = 0;
+
+    static_attest(self->length < L);
   } else {
     self->length = 0;
     self->tail = 0;
     self->head = 0;
+
+    static_attest(0 == self->length);
   }
 
-  attest(self, true);
-
   let value = node->value;
-  static_attest(safe(value));
 
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  node->deref();
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
+  if 0 != value {
+    static_attest(safe(value));
+  }
+
+  node->unref();
 
   return value;
 }
@@ -513,7 +351,7 @@ export fn rpop(List+L mut *self) -> void *
  * Pops and returns a node with its value from the left of the list updating
  * the head. The returned node's memory must be managed by the caller as the
  * list will not free any allocated resources for the returned node as it is
- * dereferenced from the list.
+ * unreferenced from the list.
  * @example
  *   new list = zxlist::make();
  *   list.rpush("hello");
@@ -521,17 +359,10 @@ export fn rpop(List+L mut *self) -> void *
  *   list.lpop(); // "hello"
  */
 export fn lpop(List+L mut *self) -> void *
-  model ok(*self)
   model safe(self)
-  model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
+  model self->length >= 0
+  model self->length <= L
 {
-  attest(self, false);
-
   let length = self->length;
   let node = self->head;
 
@@ -542,22 +373,23 @@ export fn lpop(List+L mut *self) -> void *
     self->length = length - 1;
     self->head = node->next;
     self->head->prev = 0;
+
+    static_attest(self->length < L);
   } else {
     self->length = 0;
     self->tail = 0;
     self->head = 0;
-  }
 
-  attest(self, true);
+    static_attest(0 == self->length);
+  }
 
   let value = node->value;
 
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  node->deref();
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  static_attest(safe(value));
+  if 0 != value {
+    static_attest(safe(value));
+  }
+
+  node->unref();
 
   return value;
 }
@@ -574,33 +406,28 @@ export fn lpop(List+L mut *self) -> void *
  *   let node = list.find("world"); // node with value "world"
  */
 export fn find(List+L mut *self, void *value) -> Node *
-  model ok(*self)
   model safe(self)
-  model safe(self->compare)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
+  where safe(value)
 {
-  static_attest(safe(self->compare));
+  if 0 == self->compare {
+    return 0;
+  }
 
-  attest(self, false);
   let mut tail = self->iterator_tail();
-
-  attest(self, false);
   let mut head = self->iterator();
 
-  attest(self, false);
-
+  static_attest(safe(self->compare));
   while !head.ended && !tail.ended {
     let left = head.next();
     let right = tail.next();
 
     if self->compare(value, left->value) {
+      static_attest(safe(left));
       return left;
     }
 
     if self->compare(value, right->value) {
+      static_attest(safe(right));
       return right;
     }
   }
@@ -615,17 +442,12 @@ export fn find(List+L mut *self, void *value) -> Node *
  *   list.rpush("hello");
  *   list.rpush("world");
  *   let node = list.at(1); // node with value "world"
+ *   let node = list.at(0); // node with value "hello"
+ *   let node = list.at(-1); // node with value "world"
  */
 export fn at(List+L mut *self, int index) -> Node *
-  model ok(*self)
   model safe(self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
 {
-  attest(self, false);
-
   if (usize) index >= self->length {
     return 0;
   }
@@ -653,12 +475,8 @@ export fn at(List+L mut *self, int index) -> Node *
     node = it.next();
   }
 
-  attest(self, false);
-
   if 0 != node {
     static_attest(safe(node));
-    static_attest(node_ok(*node));
-    static_attest(!node_destroyed(*node));
   }
 
   return node;
@@ -675,30 +493,22 @@ export fn at(List+L mut *self, int index) -> Node *
  *   assert(1 == list.length);
  */
 export fn remove(List+L mut *self, void *value)
-  model ok(*self)
   model safe(self)
   model safe(value)
-  model changed(*self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
+  model self->length >= 0
+  model self->length <= L
+  where safe(value)
 {
-  attest(self, false);
   let node = (Node mut *) self->find(value);
 
   if 0 != node {
     static_attest(safe(node));
-    static_attest(node_ok(*node));
-    static_attest(!node_destroyed(*node));
     self->remove_node(node);
   }
-
-  attest(self, true);
 }
 
 /**
- * Removes a node from the list, destroying it, updating links and list
+ * Removes a node from the list, updating links and list
  * length.
  * @example
  *   new list = zxlist::make();
@@ -706,28 +516,15 @@ export fn remove(List+L mut *self, void *value)
  *   list.remove_node(node);
  */
 export fn remove_node(List+L mut *self, Node mut *node)
-  model ok(*self)
   model safe(self)
   model safe(node)
-  model changed(*self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where node_ok(*node)
-  where !destroyed(*self)
-  where !node_destroyed(*node)
+  model self->length >= 0
+  model self->length < L
+  where safe(node)
 {
-  attest(self, false);
-  let length = self->length;
-
-  static_attest(safe(node));
-  static_attest(!node_destroyed(*node));
-  static_attest(node_ok(*node));
-  node->destroy();
-  self->length = length - 1;
-  static_attest(node_destroyed(*node));
-
-  attest(self, true);
+  node->unref();
+  self->length = self->length - 1;
+  static_attest(self->length < L);
 }
 
 /**
@@ -740,18 +537,12 @@ export fn remove_node(List+L mut *self, Node mut *node)
  *   }
  */
 export fn contains(List+L mut *self, void *value) -> bool
-  model ok(*self)
   model safe(self)
   model safe(value)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
+  where safe(value)
 {
-  attest(self, false);
   let node = self->find(value);
 
-  attest(self, false);
   if 0 != node {
     return true;
   } else {
@@ -770,23 +561,15 @@ export fn contains(List+L mut *self, void *value) -> bool
  *   }
  */
 export fn contains_node(List+L mut *self, Node *node) -> bool
-  model ok(*self)
-  model safe(node)
   model safe(self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
+  model safe(node)
+  where safe(node)
 {
-  attest(self, false);
   let mut it = self->iterator();
-
-  attest(self, false);
 
   while !it.ended {
     let suspect = it.next();
     if node == suspect {
-      it.destroy();
       return true;
     }
   }
@@ -803,20 +586,9 @@ export fn contains_node(List+L mut *self, Node *node) -> bool
  *   list.pop(); // "world"
  */
 export fn pop(List+L mut *self) -> void *
-  model ok(*self)
   model safe(self)
-  model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
 {
-  attest(self, false);
-  let value = self->rpop();
-  attest(self, true);
-  static_attest(safe(value));
-  return value;
+  return self->rpop();
 }
 
 /**
@@ -827,25 +599,10 @@ export fn pop(List+L mut *self) -> void *
  *   list.push("world");
  */
 export fn push(List+L mut *self, void *value) -> Node *
-  model ok(*self)
   model safe(self)
-  model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
-  where self->length < L
+  where safe(value)
 {
-  attest(self, false);
-  let node = self->rpush(value);
-  attest(self, true);
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
+  return self->rpush(value);
 }
 
 /**
@@ -856,25 +613,13 @@ export fn push(List+L mut *self, void *value) -> Node *
  *   list.push_node(&node);
  */
 export fn push_node(List+L mut *self, Node mut *node) -> Node *
-  model ok(*self)
   model safe(self)
+  model safe(node)
   model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
-  where self->length < L
+  model safe(return->value)
+  where safe(node->value)
 {
-  attest(self, false);
-  self->rpush_node(node);
-  attest(self, true);
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
+  return self->rpush_node(node);
 }
 
 /**
@@ -886,20 +631,9 @@ export fn push_node(List+L mut *self, Node mut *node) -> Node *
  *   list.shift(); // "hello"
  */
 export fn shift(List+L mut *self) -> void *
-  model ok(*self)
   model safe(self)
-  model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
 {
-  attest(self, false);
-  let value = self->lpop();
-  attest(self, true);
-  static_attest(safe(value));
-  return value;
+  return self->lpop();
 }
 
 /**
@@ -910,25 +644,12 @@ export fn shift(List+L mut *self) -> void *
  *   list.unshift("hello");
  */
 export fn unshift(List+L mut *self, void *value) -> Node *
-  model ok(*self)
   model safe(self)
   model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
-  where self->length < L
+  model self->length <= L
+  where safe(value)
 {
-  attest(self, false);
-  let node = self->lpush(value);
-  attest(self, true);
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
+  return self->lpush(value);
 }
 
 /**
@@ -939,40 +660,12 @@ export fn unshift(List+L mut *self, void *value) -> Node *
  *   list.unshift_node(node);
  */
 export fn unshift_node(List+L mut *self, Node mut *node) -> Node *
-  model ok(*self)
   model safe(self)
+  model safe(node)
   model safe(return)
-  model changed(*self)
-  model !destroyed(*self)
-  model node_ok(*return)
-  model !node_destroyed(*return)
-
-  where ok(*self)
-  where !destroyed(*self)
-  where self->length < L
+  model safe(return->value)
+  model self->length <= L
+  where safe(node->value)
 {
-  attest(self, false);
-  self->lpush_node(node);
-  attest(self, true);
-  static_attest(safe(node));
-  static_attest(node_ok(*node));
-  static_attest(!node_destroyed(*node));
-  return node;
-}
-
-/**
- * List model state attestations.
- */
-export fn attest(List+L mut *self, bool did_change)
-  model ok(*self)
-  model safe(self)
-  model changed(*self)
-  model !destroyed(*self)
-  model self->length < L
-{
-  if 0 != self { static_attest(safe(self)); }
-  if did_change { static_attest(changed(*self)); }
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
-  static_attest(self->length < L);
+  return self->lpush_node(node);
 }

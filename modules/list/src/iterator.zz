@@ -4,21 +4,6 @@ using node::{ Node }
 using zxutils as utils
 
 /**
- * Theory used to prove that a list iterator was ok.
- */
-export theory ok(Iterator iterator) -> bool;
-
-/**
- * Theory used to prove that a list iterator was changed.
- */
-export theory changed(Iterator iterator) -> bool;
-
-/**
- * Theory used to prove that a list iterator was destroyed.
- */
-export theory destroyed(Iterator iterator) -> bool;
-
-/**
  * The list iterator iteration direction.
  */
 export enum Direction {
@@ -51,20 +36,10 @@ export struct Iterator {
 /**
  * `Iterator` stack constructor with direction from a list.
  */
-export fn make(
-  Iterator new mut *self,
-  List mut *list,
-  Direction direction
-) -> Iterator mut *
-  model ok(*self)
-  model safe(list)
+export fn make(Iterator new mut *self, List mut *list, Direction direction)
   model safe(self)
-  model safe(return)
-  model !destroyed(*self)
+  where safe(list)
 {
-  static_attest(safe(self));
-  static_attest(safe(list));
-
   self->list = list;
   self->ended = false;
   self->direction = direction;
@@ -77,11 +52,6 @@ export fn make(
   if 0 == self->node {
     self->ended = true;
   }
-
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
-
-  return self;
 }
 
 /**
@@ -94,16 +64,11 @@ export fn make(
  *   }
  */
 export fn next(Iterator mut *self) -> Node *
-  model ok(*self)
   model safe(self)
   model safe(return)
   model safe(return->value)
-  model changed(*self)
-  model !destroyed(*self)
 
-  where ok(*self)
   where false == self->ended
-  where !destroyed(*self)
 {
   let node = self->node;
 
@@ -121,10 +86,6 @@ export fn next(Iterator mut *self) -> Node *
 
   static_attest(safe(node));
   static_attest(safe(node->value));
-
-  static_attest(ok(*self));
-  static_attest(changed(*self));
-  static_attest(!destroyed(*self));
 
   return node;
 }
@@ -146,43 +107,9 @@ export fn next(Iterator mut *self) -> Node *
  *   it.destroy();
  */
 export fn end(Iterator mut *self)
-  model ok(*self)
   model safe(self)
-  model changed(*self)
-  //model !destroyed(*self)
-
-  where ok(*self)
-  where safe(self)
-  where !destroyed(*self)
+  where false == self->ended
 {
   self->ended = true;
   self->node = 0;
-
-  static_attest(ok(*self));
-  static_attest(safe(self));
-  static_attest(changed(*self));
-  static_attest(!destroyed(*self));
-}
-
-/**
- * Destroys the iterator.
- * @example
- *   new list = zxlist::make();
- *   let it = list.iterator();
- *   it.destroy();
- */
-export fn destroy(Iterator mut *self)
-  model safe(self)
-  model destroyed(*self)
-
-  where ok(*self)
-  where !destroyed(*self)
-{
-  static_attest(ok(*self));
-  static_attest(!destroyed(*self));
-
-  self->end();
-  self->list = 0;
-
-  static_attest(destroyed(*self));
 }
