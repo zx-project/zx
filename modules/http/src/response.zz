@@ -137,8 +137,6 @@ export fn header_callback(void *data, usize size, usize chunks, void *ptr) -> us
 
         static_attest(safe(headers));
         static_attest(safe(headers->list));
-        static_attest(zxlist::ok(headers->list));
-        static_attest(!zxlist::destroyed(headers->list));
         static_attest(headers->list.length < 100);
         headers->list.push(header);
       }

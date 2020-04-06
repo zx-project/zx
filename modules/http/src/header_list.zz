@@ -16,19 +16,9 @@ export fn make(HeaderList new mut *self) -> HeaderList * {
   return self;
 }
 
-export fn iterator(HeaderList mut *self) -> HeaderIterator
-  model zxlist::ok(self->list)
-  model zxlist::iterator::ok(return.iterator)
-  model !zxlist::iterator::destroyed(return.iterator)
-{
-  static_attest(zxlist::ok(self->list));
-  static_attest(!zxlist::destroyed(self->list));
+export fn iterator(HeaderList mut *self) -> HeaderIterator {
   let it = self->list.iterator();
   new wrap = make_iterator(it);
   static_attest(safe(wrap.iterator));
-  static_attest(zxlist::ok(self->list));
-  static_attest(!zxlist::destroyed(self->list));
-  static_attest(zxlist::iterator::ok(wrap.iterator));
-  static_attest(!zxlist::iterator::destroyed(wrap.iterator));
   return wrap;
 }

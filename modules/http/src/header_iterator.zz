@@ -17,8 +17,6 @@ export fn make(HeaderIterator new mut *self, Iterator iterator) -> HeaderIterato
 export fn next(HeaderIterator mut *self) -> Header *
   model safe(return)
   where false == self->ended
-  where zxlist::iterator::ok(self->iterator)
-  where !zxlist::iterator::destroyed(self->iterator)
 {
   static_attest(false == self->iterator.ended);
   let node = self->iterator.next();
