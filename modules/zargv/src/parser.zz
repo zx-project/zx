@@ -1,0 +1,540 @@
+using <stddef.h>::{ double as double_t, float as float_t }
+using <ctype.h>::{ isdigit }
+using <stdio.h>::{ printf }
+
+using zxlist::{ List, make as make_list }
+using pool::{ Pool, make as make_pool }
+using err::{ assert }
+
+using zxutils as utils
+using pool
+
+using argument::{ Argument, ArgumentOptions, make as make_argument }
+using argument
+
+/**
+ * A container for parser state.
+ */
+export struct Parser {
+  Pool+4096 mut pool;
+  List+128 mut args;
+}
+
+/**
+ * Initializes a new `Parser`.
+ * @constructor
+ * @example
+ *   new args = zargv::parser();
+ */
+export fn make(Parser new mut *self)
+  model safe(self)
+  model pool::continuous(self->pool)
+{
+  make_pool(&self->pool, sizeof(Argument));
+  make_list(&self->args);
+}
+
+/**
+ * Creates an argument from a pointer and options adding it to the
+ * parser argument list.
+ * @private
+ */
+fn create_argument(
+  Parser mut *self,
+  void *mut ptr,
+  ArgumentOptions options
+) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let arg = (Argument mut *) self->pool.alloc();
+  if 0 != arg {
+    static_attest(safe(arg));
+    make_argument(arg, (void *) ptr, options);
+    self->args.push(arg);
+  }
+  return arg;
+}
+
+/**
+ * Creates an `int` argument from pointer and options.
+ * @example
+ *   new args = zargv::parser();
+ *   int mut i;
+ *   args.int(&i, ArgumentOptions { name: "i" });
+ *   args.parse(argv, argc);
+ */
+export fn int(Parser mut *self, int * mut ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.type = argument::Type::Int;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates an `uint` argument from pointer and options.
+ * @example
+ *   new args = zargv::parser();
+ *   u8 mut i;
+ *   args.uint(&i, ArgumentOptions { name: "i" });
+ *   args.parse(argv, argc);
+ */
+export fn uint(Parser mut *self, u32 * mut ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.type = argument::Type::UInt;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates an `float` argument from pointer and options.
+ * @example
+ *   new args = zargv::parser();
+ *   float mut f;
+ *   args.float(&f, ArgumentOptions { name: "f" });
+ *   args.parse(argv, argc);
+ */
+export fn float(Parser mut *self, float_t * mut ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.type = argument::Type::Float;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates an `double` argument from pointer and options.
+ * @example
+ *   new args = zargv::parser();
+ *   double mut d;
+ *   args.double(&f, ArgumentOptions { name: "d" });
+ *   args.parse(argv, argc);
+ */
+export fn double(Parser mut *self, double_t * mut ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.type = argument::Type::Double;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates an `bool` argument from pointer and options.
+ * @example
+ *   new args = zargv::parser();
+ *   bool mut b;
+ *   args.bool(&b, ArgumentOptions { name: "b" });
+ *   args.parse(argv, argc);
+ */
+export fn bool(Parser mut *self, bool * mut ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.type = argument::Type::Bool;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates an `string` argument from pointer and options.
+ * @example
+ *   new args = zargv::parser();
+ *   char mut *s;
+ *   args.bool(&s, ArgumentOptions { name: "s" });
+ *   args.parse(argv, argc);
+ */
+export fn string(Parser mut *self, char ** mut ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.type = argument::Type::String;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates an `array` argument from pointer and options. A max number of items
+ * to add to this array must be given with `options.max`. A type must be
+ * specified otherwise a string type is assumed.
+ * @example
+ *   new args = zargv::parser();
+ *   char mut *s[3];
+ *   args.array(&s, ArgumentOptions { max: 3, type:: zargv::String, name: "s" });
+ *   args.parse(argv, argc);
+ */
+export fn array(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+
+  if argument::Type::None == options.type {
+    opts.type = argument::Type::String;
+  }
+
+  opts.array = true;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates an `rest` argument from pointer and options where all arguments
+ * after the `--` in a argument list are added to this pointer. A max number of
+ * items must be given with `options.max`. The default is `1`. This function
+ * assumes a pointer to a `char *[]` array that can hold at least `options.max`
+ * items.
+ * @example
+ *   new args = zargv::parser();
+ *   char mut *rest[3];
+ *   args.rest(&s, ArgumentOptions { max: 3 });
+ *   args.parse(argv, argc);
+ */
+export fn rest(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.name = "";
+  opts.type = argument::Type::Rest;
+  opts.array = true;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Creates a container for unknown arguments to be mapped to. A given pointer
+ * must be large enough to hold `options.max` unknown arguments.
+ * @example
+ *   new args = zargv::parser();
+ *   char * mut unknown[3]; // max 3 unknown arguments
+ *   args.rest(unknown, ArgumentOptions { max: 3 });
+ *   args.parse(argv, argc);
+ */
+export fn unknown(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
+  model safe(self)
+  model safe(return)
+  model pool::continuous(self->pool)
+  where safe(ptr)
+  where pool::continuous(self->pool)
+{
+  let mut opts = options;
+  opts.name = "";
+  opts.type = argument::Type::Unknown;
+  opts.array = true;
+  return self->create_argument(ptr, opts);
+}
+
+/**
+ * Parses `argc` arguments in `char **argv` mapping values to argument pointers
+ * specified by the various argument schema functions.
+ * @example
+ *   new args = zargv::parser();
+ *   args.parse(argv, argc);
+ */
+export fn parse(Parser mut *self, char **argv, int argc)
+  where (usize) argc <= len(argv)
+{
+  new+32 mut unknown_args = make_list();
+  bool mut restargs = false;
+  let arglist = self->args;
+
+  for (usize mut i = 0; i < (usize) argc; ++i) {
+    if 0 == argv[i] { continue; }
+
+    let rawarg = (char *) argv[i];
+    let mut cursor = rawarg;
+    bool mut negate = false;
+
+    static_attest(safe(rawarg));
+    static_attest(nullterm(rawarg));
+
+    let rawlen = utils::string::length(rawarg);
+
+    if restargs {
+      let mut it = arglist.iterator();
+      while !it.ended {
+        let arg = (Argument mut *) it.next()->value;
+        if argument::Type::Rest == arg->type {
+          arg->set(rawarg, false);
+        }
+      }
+      continue;
+    }
+
+    if false == restargs && rawlen <= 1 {
+      continue;
+    }
+
+    static_attest(rawlen <= len(rawarg));
+
+    // short hand flags: `-a value -b value -c value`
+    if '-' == rawarg[0] && '-' != rawarg[1] {
+      static_attest(len(rawarg) > 2);
+      if ' ' == rawarg[2] || (bool) isdigit(rawarg[2]) {
+        static_attest(len(rawarg) > 2);
+
+        let name = rawarg[1];
+        let mut value = rawarg + 2;
+        let mut it = arglist.iterator();
+        let mut value_was_set = false;
+
+        if ' ' == value[0] {
+          static_attest(len(value) > 1);
+          value = value + 1;
+        }
+
+        static_attest(safe(value));
+        while !it.ended {
+          let arg = (Argument mut *) it.next()->value;
+
+          // ignore rest args
+          if argument::Type::Rest == arg->type {
+            continue;
+          }
+
+          static_attest(safe(value));
+          static_attest(safe(arg->name));
+          static_attest(safe(arg->alias));
+
+          static_attest(nullterm(value));
+          static_attest(nullterm(arg->name));
+          static_attest(nullterm(arg->alias));
+
+          if 1 == utils::string::length(arg->name) {
+            static_attest(1 == len(arg->name));
+            if name == arg->name[0] {
+              arg->set(value, false);
+              value_was_set = true;
+            }
+          } else if 1 == utils::string::length(arg->alias) {
+            static_attest(1 == len(arg->alias));
+            if name == arg->alias[0] {
+              arg->set(value, false);
+              value_was_set = true;
+            }
+          }
+        }
+
+        if !value_was_set {
+          static_attest(safe(name));
+          char mut *copy = self->pool.malloc(1);
+          if 0 != copy {
+            static_attest(safe(copy));
+            *copy = name;
+            unknown_args.push((void *) copy);
+          }
+        }
+      } else {
+        // short hand booleans: `-abc` implies `-a -b -c` implies `--a=true --b=true --c=true`
+        for (usize mut j = 1; j < rawlen; ++j) {
+          let mut value_was_set = false;
+          let name = rawarg[j];
+          let mut it = arglist.iterator();
+          while !it.ended {
+            let arg = (Argument mut *) it.next()->value;
+
+            static_attest(safe(arg->name));
+            static_attest(safe(arg->alias));
+            static_attest(nullterm(arg->name));
+            static_attest(nullterm(arg->alias));
+
+            if 1 == utils::string::length(arg->name) || 1 == utils::string::length(arg->alias) {
+              static_attest(1 == len(arg->name));
+              static_attest(1 == len(arg->alias));
+              if arg->name[0] == name || arg->alias[0] == name {
+                assert(0 != arg->ptr);
+                assert(argument::Type::Bool == arg->type);
+                static_attest(safe(arg->ptr));
+                *as<bool mut * >(arg->ptr) = true;
+                value_was_set = true;
+              }
+            }
+          }
+
+
+        if !value_was_set {
+          static_attest(safe(name));
+          char mut *copy = self->pool.malloc(1);
+          if 0 != copy {
+            static_attest(safe(copy));
+            *copy = name;
+            unknown_args.push((void *) copy);
+          }
+        }
+        }
+      }
+    }
+
+    // long hand: `--bool`, `--key=value`, `--key value`, `--no-bool`
+    if '-' == cursor[0] && '-' == cursor[1] {
+      static_attest(len(cursor) > 2);
+      cursor = cursor + 2;
+
+      // stop parsing args after `--`
+      static_attest(len(cursor) > 1);
+      if 0 == cursor[0] {
+        restargs = true;
+        static_attest(true == restargs);
+        continue;
+      }
+
+      // handle `--no-key` negation flags
+      static_attest(len(cursor) > 2);
+      if 'n' == cursor[0] && 'o' == cursor[1] {
+        negate = true;
+
+        static_attest(len(cursor) > 2);
+        cursor = cursor + 2;
+
+        static_attest(len(cursor) > 2);
+        if '-' != cursor[0] {
+          // @TODO(jwerle): throw error: invalid argument syntax
+          continue;
+        } else {
+          static_attest(len(cursor) > 1);
+          cursor = cursor + 1;
+        }
+      }
+
+      let mut it = arglist.iterator();
+      let mut name = cursor;
+      let mut value_was_set = false;
+
+      static_attest(safe(cursor));
+      static_attest(nullterm(cursor));
+      while !it.ended {
+        let arg = (Argument mut *) it.next()->value;
+
+        // ignore rest args
+        if argument::Type::Rest == arg->type {
+          continue;
+        }
+
+        // ignore unknown args
+        if argument::Type::Unknown == arg->type {
+          continue;
+        }
+
+        static_attest(safe(arg->name));
+        static_attest(safe(arg->alias));
+        static_attest(nullterm(arg->name));
+        static_attest(nullterm(arg->alias));
+
+        let namelen = (usize) utils::string::length(arg->name);
+        let aliaslen = (usize) utils::string::length(arg->alias);
+
+        if utils::string::length(cursor) < namelen &&
+           utils::string::length(cursor) < aliaslen {
+          continue;
+        }
+
+        static_attest(len(cursor) > namelen);
+        static_attest(len(cursor) > aliaslen);
+
+        // if flag name in cursor doesn't contain more information, them continue
+        if ' ' != cursor[namelen] && '=' != cursor[namelen] && 0 != cursor[namelen] &&
+           ' ' != cursor[aliaslen] && '=' != cursor[aliaslen] && 0 != cursor[aliaslen] {
+          continue;
+        }
+
+        if !utils::string::compare_slice(arg->name, cursor, namelen) &&
+           !utils::string::compare_slice(arg->name, cursor, namelen) {
+          continue;
+        }
+
+        if 0 == cursor[namelen] && 0 == cursor[aliaslen] {
+          cursor = "";
+        }
+
+        // advance cursor to ' ' or '=' breaking on '\0'
+        static_attest(len(cursor) > 1);
+        while ' ' != cursor[0] && '=' != cursor[0] {
+          if 0 == cursor[0] {
+            break;
+          }
+          static_attest(len(cursor) > 1);
+          cursor = cursor + 1;
+          static_attest(len(cursor) > 1);
+        }
+
+        // if the head of the cursor points to ' ' or '=', advance 1 byte
+        if ' ' == cursor[0] || '=' == cursor[0] {
+          static_attest(len(cursor) > 1);
+          cursor = cursor + 1;
+        }
+
+        let value = cursor;
+
+        static_attest(safe(value));
+        static_attest(safe(arg->ptr));
+        static_attest(nullterm(value));
+
+        arg->set(value, negate);
+        value_was_set = true;
+      }
+
+      if !value_was_set {
+        static_attest(safe(name));
+        usize mut size = 0;
+        while 0 != name[size] && ' ' != name[size] && '=' != name[size] {
+          size++;
+        }
+
+        char mut *copy = self->pool.malloc(size + 1);
+        if 0 != copy {
+          static_attest(safe(copy));
+          utils::memory::zero(copy, size + 1);
+          utils::memory::copy(copy, name, size);
+          unknown_args.push(copy);
+        }
+      }
+    }
+  }
+
+  let mut it = unknown_args.iterator();
+  while !it.ended {
+    let unknown_arg = (char *) it.next()->value;
+    if 0 != unknown_arg {
+      static_attest(safe(unknown_arg));
+      let mut argit = self->args.iterator();
+      while !argit.ended {
+        let mut arg = (Argument mut *) argit.next()->value;
+        if argument::Type::Unknown == arg->type {
+          static_attest(nullterm(unknown_arg));
+          arg->set(unknown_arg, false);
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,219 @@
+using <stddef.h>::{ float, double }
+using <assert.h>::{ assert }
+using <stdio.h>::{ printf }
+
+using zxutils as utils
+
+using zargv::{ ArgumentOptions }
+using zargv::argument::{ STRING, INT, FLOAT, DOUBLE, BOOL }
+using zargv
+
+struct Model {
+  // scalars
+  int mut i;
+  bool mut b;
+  bool mut c;
+  bool mut e;
+  bool mut boolean;
+  bool mut value;
+  float mut f;
+  double mut d;
+  char * mut string;
+
+  // arrays
+  int mut ia[3];
+  bool mut ba[3];
+  float mut fa[3];
+  double mut da[3];
+  char * mut sa[3];
+
+  // negations
+  bool mut nx;
+  bool mut ny;
+  bool mut nz;
+
+  // rest args
+  char * mut rest[3];
+
+  // unknown arguments
+  char * mut unknown[3];
+}
+
+fn main() -> int {
+  char * mut f[3] = {0};
+  let mut actual = Model {
+    i: 0,
+    b: false,
+    boolean: false,
+    value: true,
+    c: false,
+    e: false,
+    f: 0.0,
+    d: 0.0,
+    string: "",
+    ia: {0, 0, 0},
+    ba: {false, false, false},
+    fa: {0.0, 0.0, 0.0},
+    da: {0.0, 0.0, 0.0},
+    sa: {"", "", ""},
+    nx: true,
+    ny: true,
+    nz: true,
+    rest: {"", "", ""},
+    unknown: {"", "", ""}
+  };
+
+  let expected = Model {
+    i: 1234,
+    b: true,
+    boolean: true,
+    value: false,
+    c: false,
+    e: false,
+    f: 1.2,
+    d: 2.4,
+    string: "hello",
+    ia: {1, 2, 3},
+    ba: {true, true, true},
+    fa: {1.1, 2.2, 3.3},
+    da: {4.4, 4.5, 4.6},
+    sa: {"a", "b", "c"},
+    nx: false,
+    ny: false,
+    nz: false,
+    rest: {"x", "y", "z"},
+    unknown: {"z", "unknown-flag", "u"}
+  };
+
+  u8 argc = 32;
+  char *argv[argc] = {
+    "-i1234",
+    "-b",
+    "--boolean",
+    "--value=false",
+    "-cez", // `z` is unknown
+    "--f 1.2",
+    "-d 2.4",
+    "--string hello",
+    "--ia 1",
+    "--ia 2",
+    "--ia 3",
+    "--ba",
+    "--ba",
+    "--ba",
+    "--fa=1.1",
+    "--fa=2.2",
+    "--fa=3.3",
+    "--da 4.4",
+    "--da 4.5",
+    "--da 4.6",
+    "--sa a",
+    "--sa b",
+    "--sa c",
+    "--no-nx",
+    "--no-ny",
+    "--no-nz",
+    "--unknown-flag fo", // unknown
+    "-u", // unknown
+    "--",
+    "x",
+    "y",
+    "z",
+  };
+
+  new args = zargv::parser();
+
+  args.int(&actual.i, ArgumentOptions { name: "i" });
+  args.bool(&actual.b, ArgumentOptions { name: "b" });
+  args.bool(&actual.c, ArgumentOptions { name: "c" });
+  args.bool(&actual.e, ArgumentOptions { name: "e" });
+  args.bool(&actual.boolean, ArgumentOptions { name: "boolean" });
+  args.bool(&actual.value, ArgumentOptions { name: "value" });
+  args.float(&actual.f, ArgumentOptions { name: "f" });
+  args.double(&actual.d, ArgumentOptions { name: "d" });
+  args.string(&actual.string, ArgumentOptions { name: "string" });
+
+  args.array(&actual.ia, ArgumentOptions { name: "ia", max: 3, type: INT });
+  args.array(&actual.ba, ArgumentOptions { name: "ba", max: 3, type: BOOL });
+  args.array(&actual.fa, ArgumentOptions { name: "fa", max: 3, type: FLOAT });
+  args.array(&actual.da, ArgumentOptions { name: "da", max: 3, type: DOUBLE });
+  args.array(&actual.sa, ArgumentOptions { name: "sa", max: 3, type: STRING });
+
+  args.bool(&actual.nx, ArgumentOptions { name: "nx" });
+  args.bool(&actual.ny, ArgumentOptions { name: "ny" });
+  args.bool(&actual.nz, ArgumentOptions { name: "nz" });
+
+  args.rest(actual.rest, ArgumentOptions { max: 3 });
+  args.unknown(actual.unknown, ArgumentOptions { max: 3 });
+
+  args.parse(argv, argc);
+
+  assert(actual.i == expected.i);
+  assert(actual.b == expected.b);
+  assert(actual.f == expected.f);
+
+  assert(actual.boolean == expected.boolean);
+  assert(actual.value == expected.value);
+
+  static_attest(safe(actual.string));
+  static_attest(nullterm(actual.string));
+  assert(utils::string::compare(actual.string, expected.string));
+
+  assert(actual.ia[0] == expected.ia[0]);
+  assert(actual.ia[1] == expected.ia[1]);
+  assert(actual.ia[2] == expected.ia[2]);
+
+  assert(actual.ba[0] == expected.ba[0]);
+  assert(actual.ba[1] == expected.ba[1]);
+  assert(actual.ba[2] == expected.ba[2]);
+
+  assert(actual.fa[0] == expected.fa[0]);
+  assert(actual.fa[1] == expected.fa[1]);
+  assert(actual.fa[2] == expected.fa[2]);
+
+  assert(actual.da[0] == expected.da[0]);
+  assert(actual.da[1] == expected.da[1]);
+  assert(actual.da[2] == expected.da[2]);
+
+  static_attest(safe(actual.sa[0]));
+  static_attest(nullterm(actual.sa[0]));
+  assert(utils::string::compare(actual.sa[0], expected.sa[0]));
+
+  static_attest(safe(actual.sa[1]));
+  static_attest(nullterm(actual.sa[1]));
+  assert(utils::string::compare(actual.sa[1], expected.sa[1]));
+
+  static_attest(safe(actual.sa[2]));
+  static_attest(nullterm(actual.sa[2]));
+  assert(utils::string::compare(actual.sa[2], expected.sa[2]));
+
+  assert(actual.nx == expected.nx);
+  assert(actual.ny == expected.ny);
+  assert(actual.nz == expected.nz);
+
+  static_attest(safe(actual.rest[0]));
+  static_attest(nullterm(actual.rest[0]));
+  assert(utils::string::compare(actual.rest[0], expected.rest[0]));
+
+  static_attest(safe(actual.rest[1]));
+  static_attest(nullterm(actual.rest[1]));
+  assert(utils::string::compare(actual.rest[1], expected.rest[1]));
+
+  static_attest(safe(actual.rest[2]));
+  static_attest(nullterm(actual.rest[2]));
+  assert(utils::string::compare(actual.rest[2], expected.rest[2]));
+
+  static_attest(safe(actual.unknown[0]));
+  static_attest(nullterm(actual.unknown[0]));
+  assert(utils::string::compare(actual.unknown[0], expected.unknown[0]));
+
+  static_attest(safe(actual.unknown[1]));
+  static_attest(nullterm(actual.unknown[1]));
+  assert(utils::string::compare(actual.unknown[1], expected.unknown[1]));
+
+  static_attest(safe(actual.unknown[2]));
+  static_attest(nullterm(actual.unknown[2]));
+  assert(utils::string::compare(actual.unknown[2], expected.unknown[2]));
+
+  return 0;
+}

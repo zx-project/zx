@@ -16,6 +16,23 @@ zx = "https://github.com/zx-project/zx.git"
 
 ## Modules
 
+### `zargv`
+
+Parse command line arguments supporting a variety of flag formats.
+
+See the [documentation](modules/zargv) for more information.
+
+#### Usage
+
+```toml
+[dependencies]
+zargv = "*"
+```
+
+```c++
+using zargv
+```
+
 ### `utils`
 
 Various utility functions, like memory management, etc.

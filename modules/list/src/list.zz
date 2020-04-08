@@ -120,7 +120,7 @@ export fn make(List+L new mut *self)
  *     let node = it.next();
  *   }
  */
-export fn iterator(List+L mut *self) -> Iterator
+export fn iterator(List+L *self) -> Iterator
   model safe(self)
 {
   let defaults = self->defaults;
@@ -138,7 +138,7 @@ export fn iterator(List+L mut *self) -> Iterator
  *     let node = it.next();
  *   }
  */
-export inline fn iterator_head(List+L mut *self) -> Iterator
+export inline fn iterator_head(List+L *self) -> Iterator
   model safe(self)
 {
   return self->iterator_with_direction(HEAD);
@@ -155,7 +155,7 @@ export inline fn iterator_head(List+L mut *self) -> Iterator
  *     let node = it.next();
  *   }
  */
-export inline fn iterator_tail(List+t mut *self) -> Iterator
+export inline fn iterator_tail(List+t *self) -> Iterator
   model safe(self)
 {
   return self->iterator_with_direction(TAIL);
@@ -172,7 +172,7 @@ export inline fn iterator_tail(List+t mut *self) -> Iterator
  *     let node = it.next();
  *   }
  */
-export fn iterator_with_direction(List+L mut *self, Direction direction) -> Iterator
+export fn iterator_with_direction(List+L *self, Direction direction) -> Iterator
   model safe(self)
 {
   new it = make_iterator(self, direction);

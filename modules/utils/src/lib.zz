@@ -1,2 +1,3 @@
 export using math
 export using memory
+export using string

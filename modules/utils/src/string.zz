@@ -1,0 +1,26 @@
+using <string.h>::{
+  strncmp,
+  strcmp,
+  strlen,
+}
+
+export inline fn compare(char *left, char *right) -> bool
+  where safe(left)
+  where safe(right)
+  where nullterm(left)
+  where nullterm(right)
+{
+  return 0 == strcmp(left, right);
+}
+
+export inline fn compare_slice(char *left, char *right, usize length) -> bool {
+  return 0 == strncmp(left, right, length);
+}
+
+export inline fn length(char *string) -> usize
+  model safe(string)
+  where safe(string)
+  where nullterm(string)
+{
+  return (usize) strlen(string);
+}

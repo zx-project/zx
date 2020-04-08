@@ -1,0 +1,19 @@
+[project]
+version = "0.1.0"
+name = "zargv"
+cincludes = []
+cobjects = []
+pkgconfig = []
+cflags = []
+lflags = []
+
+[variants]
+default = []
+
+[dependencies]
+utils = "*"
+pool = "*"
+list = "*"
+err = "*"
+
+[repos]

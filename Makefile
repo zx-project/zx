@@ -1,4 +1,4 @@
-MODULES += http curl utils list
+MODULES += http curl utils list zargv
 
 ZZ ?= $(shell which zz)
 

@@ -1,0 +1,185 @@
+using <stddef.h>::{ double as double_t, float as float_t }
+using <stdlib.h>::{ atof, atoi, atol }
+
+using zxutils as utils
+
+/**
+ * Supported argument types as an enumeration.
+ */
+export enum Type {
+  None = 0,
+  Int,
+  UInt,
+  Float,
+  Double,
+  Bool,
+  String,
+  Rest,
+  Unknown
+}
+
+/**
+ * `Type::None` re-exported as a constant.
+ */
+export const int NONE = Type::None;
+
+/**
+ * `Type::Int` re-exported as a constant.
+ */
+export const int INT = Type::Int;
+
+/**
+ * `Type::UInt` re-exported as a constant.
+ */
+export const int UINT = Type::UInt;
+
+/**
+ * `Type::Float` re-exported as a constant.
+ */
+export const int FLOAT = Type::Float;
+
+/**
+ * `Type::Double re-exported as a constant.
+ */
+export const int DOUBLE = Type::Double;
+
+/**
+ * `Type::Bool` re-exported as a constant.
+ */
+export const int BOOL = Type::Bool;
+
+/**
+ * `Type::String` re-exported as a constant.
+ */
+export const int STRING = Type::String;
+
+/**
+ * `Type::Rest` re-exported as a constant.
+ */
+export const int REST = Type::Rest;
+
+/**
+ * `Type::Unknown` re-exported as a constant.
+ */
+export const int UNKNOWN = Type::Unknown;
+
+/**
+ * Container for holding argument scheme information and a pointer
+ * to map an argument value to.
+ */
+export struct Argument {
+  Type type;
+  bool isarray;
+  usize mut offset;
+  usize size;
+  void ** mut ptr;
+  char *name;
+  char *alias;
+  char *description;
+}
+
+/**
+ * User options used to configure a parse-able argument.
+ */
+export struct ArgumentOptions {
+  Type type;
+  bool array;
+  usize max;
+  char *name;
+  char *alias;
+  char *description;
+}
+
+/**
+ * Initializes a new `Argument` with a pointer and options.
+ * @constructor
+ */
+export fn make(Argument new mut *self, void *ptr, ArgumentOptions options)
+  model safe(self)
+{
+  self->description = options.description;
+  self->isarray = options.array;
+  self->offset = 0;
+  self->alias = options.alias;
+  self->name = options.name;
+  self->type = options.type;
+  self->size = options.max;
+  self->ptr = ptr;
+
+  if 0 == self->size {
+    self->size = 1;
+  }
+
+  if 0 == self->alias {
+    self->alias = self->name;
+  }
+
+  if 0 == self->description {
+    self->description = "";
+  }
+}
+
+/**
+ * Sets a value from a string based on the argument type mapping a string value
+ * to ints, uint, doubles, floats, strings, and booleans. Set `negate` to true
+ * for arguments of type `Type::Bool` to negate the boolean value to `false`.
+ */
+export fn set(Argument mut *self, char *value, bool negate)
+  model safe(value)
+  where safe(value)
+  where nullterm(value)
+{
+  static_attest(safe(self->ptr));
+  static_attest(len(self->ptr) > self->offset);
+  switch self->type {
+    Type::Int => {
+      *(as<int mut *>(self->ptr) + self->offset) = (int) atoi(value);
+    }
+
+    Type::UInt => {
+      *(as<u32 mut *>(self->ptr) + self->offset) = (u32) atol(value);
+    }
+
+    Type::Double => {
+      *(as<double_t mut *>(self->ptr) + self->offset) = (double_t) atof(value);
+    }
+
+    Type::Float => {
+      *(as<float_t mut *>(self->ptr) + self->offset) = (float_t) atof(value);
+    }
+
+    Type::String => {
+      *as<char * mut *>(self->ptr + self->offset) = value;
+      static_attest(safe(*as<char * mut *>(self->ptr + self->offset)));
+      static_attest(nullterm(*as<char * mut *>(self->ptr + self->offset)));
+    }
+
+    Type::Bool => {
+      if negate {
+        *(as<u8 mut *>(self->ptr) + self->offset) = (u8) false;
+      } else if utils::string::compare("false", value) {
+        *(as<u8 mut *>(self->ptr) + self->offset) = (u8) false;
+      } else {
+        *(as<u8 mut *>(self->ptr) + self->offset) = (u8) true;
+      }
+    }
+
+    Type::Rest => {
+      *as<char * mut *>(self->ptr + self->offset) = value;
+      static_attest(safe(*as<char * mut *>(self->ptr + self->offset)));
+      static_attest(nullterm(*as<char * mut *>(self->ptr + self->offset)));
+    }
+
+    Type::Unknown => {
+      *as<char * mut *>(self->ptr + self->offset) = value;
+      static_attest(safe(*as<char * mut *>(self->ptr + self->offset)));
+      static_attest(nullterm(*as<char * mut *>(self->ptr + self->offset)));
+    }
+  }
+
+  if self->isarray {
+    if self->offset < self->size {
+      self->offset = self->offset + 1;
+    }
+  }
+}

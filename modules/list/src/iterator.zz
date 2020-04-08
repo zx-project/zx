@@ -29,18 +29,16 @@ export const int TAIL = Direction::Tail;
 export struct Iterator {
   Direction direction;
   bool ended;
-  List mut *list;
-  Node mut *node;
+  Node unsafe *node;
 }
 
 /**
  * `Iterator` stack constructor with direction from a list.
  */
-export fn make(Iterator new mut *self, List mut *list, Direction direction)
+export fn make(Iterator new mut *self, List *list, Direction direction)
   model safe(self)
   where safe(list)
 {
-  self->list = list;
   self->ended = false;
   self->direction = direction;
 
