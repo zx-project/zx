@@ -29,8 +29,8 @@ fn test_list() {
   test_list_push();
   test_list_shift();
   test_list_unshift();
+  test_list_slice();
 }
-
 
 fn test_list_rpush() {
   new+1 mut l = list::make();
@@ -162,6 +162,42 @@ fn test_list_unshift() {
 
   assert(0 == strcmp("hello", l.pop()));
   assert(0 == l.length);
+}
+
+fn test_list_slice() {
+  new+4 mut l = list::make();
+  void * mut values[4] = {0};
+
+  l.push("a");
+  l.push("b");
+  l.push("c");
+  l.push("d");
+
+  assert(1 == l.slice(values, 0, 1));
+  assert(0 == strcmp("a", values[0]));
+
+  assert(1 == l.slice(values, 1, 1));
+  assert(0 == strcmp("b", values[0]));
+
+  assert(1 == l.slice(values, 2, 1));
+  assert(0 == strcmp("c", values[0]));
+
+  assert(1 == l.slice(values, 3, 1));
+  assert(0 == strcmp("d", values[0]));
+
+  assert(2 == l.slice(values, 1, 2));
+  assert(0 == strcmp("b", values[0]));
+  assert(0 == strcmp("c", values[1]));
+
+  assert(2 == l.slice(values, 2, 2));
+  assert(0 == strcmp("c", values[0]));
+  assert(0 == strcmp("d", values[1]));
+
+  assert(4 == l.slice(values, 0, 4));
+  assert(0 == strcmp("a", values[0]));
+  assert(0 == strcmp("b", values[1]));
+  assert(0 == strcmp("c", values[2]));
+  assert(0 == strcmp("d", values[3]));
 }
 
 fn test_iterator() {
