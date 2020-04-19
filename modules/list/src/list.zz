@@ -55,7 +55,7 @@ static ListDefaults shared_defaults = ListDefaults {
 /**
  * Creates a unlinked node from a given value attached to list.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   let node = list.create_node("hello");
  */
 fn create_node(List+L mut *self, void *value) -> Node mut *
@@ -92,7 +92,7 @@ fn default_node_value_compare(void *left, void *right) -> bool
  * `List` constructor. Initializes a `List` pointer.
  * @constructor
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  */
 export fn make(List+L new mut *self)
   model safe(self)
@@ -113,7 +113,7 @@ export fn make(List+L new mut *self)
  * Creates and returns a stack allocated iterator for a list instance
  * in the default iterator direction.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   let it = list.iterator();
  *
  *   while !it.ended {
@@ -131,7 +131,7 @@ export fn iterator(List+L *self) -> Iterator
  * Creates and returns a stack allocated iterator for a list instance
  * in the "head" direction.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   let it = list.iterator_head();
  *
  *   while !it.ended {
@@ -148,7 +148,7 @@ export inline fn iterator_head(List+L *self) -> Iterator
  * Creates and returns a stack allocated iterator for a list instance
  * in the "tail" direction.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   let it = list.iterator_tail();
  *
  *   while !it.ended {
@@ -165,8 +165,8 @@ export inline fn iterator_tail(List+t *self) -> Iterator
  * Creates and returns a stack allocated iterator for a list instance
  * in a given direction.
  * @example
- *   new list = zxlist::make();
- *   let it = list.iterator_with_direction(zxlist::HEAD);
+ *   new list = list::make();
+ *   let it = list.iterator_with_direction(list::HEAD);
  *
  *   while !it.ended {
  *     let node = it.next();
@@ -183,7 +183,7 @@ export fn iterator_with_direction(List+L *self, Direction direction) -> Iterator
  * Pushes a value to the right of the list updating the tail returning the
  * newly created list node.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  */
@@ -204,8 +204,8 @@ export fn rpush(List+L mut *self, void *value) -> Node *
  * Pushes a node with a value to the right of the list updating the tail
  * returning the newly created list node.
  * @example
- *   new list = zxlist::make();
- *   let node = zxlist::node::make("hello")
+ *   new list = list::make();
+ *   let node = list::node::make("hello")
  *   list.rpush_node(&node);
  */
 export fn rpush_node(List+L mut *self, Node mut *node) -> Node *
@@ -243,7 +243,7 @@ export fn rpush_node(List+L mut *self, Node mut *node) -> Node *
  * Pushes a value to the left of the list updating the head returning the
  * newly created list node.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.lpush("world");
  *   list.lpush("hello");
  */
@@ -264,8 +264,8 @@ export fn lpush(List+L mut *self, void *value) -> Node *
  * Pushes a value to the left of the list updating the head returning the
  * newly created list node.
  * @example
- *   new list = zxlist::make();
- *   let node = zxlist::node::make("hello");
+ *   new list = list::make();
+ *   let node = list::node::make("hello");
  *   list.lpush_node(node);
  */
 export fn lpush_node(List+L mut *self, Node mut *node) -> Node *
@@ -306,7 +306,7 @@ export fn lpush_node(List+L mut *self, Node mut *node) -> Node *
  * list will not free any allocated resources for the returned node as it is
  * unreferenced from the list.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   list.rpop(); // "world"
@@ -353,7 +353,7 @@ export fn rpop(List+L mut *self) -> void *
  * list will not free any allocated resources for the returned node as it is
  * unreferenced from the list.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   list.lpop(); // "hello"
@@ -400,7 +400,7 @@ export fn lpop(List+L mut *self) -> void *
  * `list.prototype.values.compare` to a `CompareNodeValueFunction` type, otherwise
  * simple pointer comparison is used by default.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   let node = list.find("world"); // node with value "world"
@@ -438,7 +438,7 @@ export fn find(List+L mut *self, void *value) -> Node *
 /**
  * Finds and returns the list node at a given index.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   let node = list.at(1); // node with value "world"
@@ -486,7 +486,7 @@ export fn at(List+L mut *self, int index) -> Node *
  * Finds a list node that points to a given value and removes it from the
  * list.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   list.remove("world");
@@ -511,7 +511,7 @@ export fn remove(List+L mut *self, void *value)
  * Removes a node from the list, updating links and list
  * length.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   let node = list.push("hello");
  *   list.remove_node(node);
  */
@@ -530,7 +530,7 @@ export fn remove_node(List+L mut *self, Node mut *node)
 /**
  * Returns a boolean indicating if a list contains a value.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.push("hello");
  *   if list.contains("hello") {
  *     list.push("world");
@@ -553,7 +553,7 @@ export fn contains(List+L mut *self, void *value) -> bool
 /**
  * Returns a boolean indicating if a list contains a list node.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   let hello = list.push("hello");
  *   if list.contains_node(hello) {
  *     let world = list.create_node("world");
@@ -580,7 +580,7 @@ export fn contains_node(List+L mut *self, Node *node) -> bool
 /**
  * An alias to `list.rpop()`.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.rpush("hello");
  *   list.rpush("world");
  *   list.pop(); // "world"
@@ -594,7 +594,7 @@ export fn pop(List+L mut *self) -> void *
 /**
  * An alias to `list.rpush()`.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.push("hello");
  *   list.push("world");
  */
@@ -608,8 +608,8 @@ export fn push(List+L mut *self, void *value) -> Node *
 /**
  * An alias to `list.rpush_node()`.
  * @example
- *   new list = zxlist::make();
- *   let node = zxlist::node::make("hello")
+ *   new list = list::make();
+ *   let node = list::node::make("hello")
  *   list.push_node(&node);
  */
 export fn push_node(List+L mut *self, Node mut *node) -> Node *
@@ -625,7 +625,7 @@ export fn push_node(List+L mut *self, Node mut *node) -> Node *
 /**
  * An alias to `list.lpop()`.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.push("hello");
  *   list.push("world");
  *   list.shift(); // "hello"
@@ -639,7 +639,7 @@ export fn shift(List+L mut *self) -> void *
 /**
  * An alias to `list.lpush()`.
  * @example
- *   new list = zxlist::make();
+ *   new list = list::make();
  *   list.unshift("world");
  *   list.unshift("hello");
  */
@@ -655,8 +655,8 @@ export fn unshift(List+L mut *self, void *value) -> Node *
 /**
  * An alias to `list.lpush_node()`.
  * @example
- *   new list = zxlist::make();
- *   let node = zxlist::node::make("hello");
+ *   new list = list::make();
+ *   let node = list::node::make("hello");
  *   list.unshift_node(node);
  */
 export fn unshift_node(List+L mut *self, Node mut *node) -> Node *

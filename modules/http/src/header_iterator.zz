@@ -1,7 +1,5 @@
-using zxlist::iterator::{ make as make_iterator }
-using zxlist::{ List, Iterator }
-using header::{ Header, make as make_header }
-using zxlist
+using header::{ Header }
+using list::{ Iterator }
 
 export struct HeaderIterator {
   Iterator mut iterator;

@@ -82,7 +82,7 @@ list = "*"
 ```
 
 ```c++
-using zxlist
+using list
 ```
 
 ### `http`

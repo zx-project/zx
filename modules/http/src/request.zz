@@ -2,9 +2,6 @@ using zxcurl::{ Context as CURLContext }
 using zxutils as utils
 using zxcurl as curl
 
-using zxlist
-using pool
-
 using response::{ InternalResponse, Response }
 using response
 using method

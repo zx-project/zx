@@ -1,9 +1,9 @@
 using header_iterator::{ HeaderIterator, make as make_iterator }
 using header_pool::{ HeaderPool }
-using zxlist::{ List, Iterator }
+using list::{ List, Iterator }
 
 using header_pool
-using zxlist
+using list
 
 export struct HeaderList {
   List+100 mut list;
@@ -11,7 +11,7 @@ export struct HeaderList {
 }
 
 export fn make(HeaderList new mut *self) -> HeaderList * {
-  zxlist::make(&self->list);
+  list::make(&self->list);
   header_pool::make(&self->pool);
   return self;
 }

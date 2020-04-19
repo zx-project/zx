@@ -1,4 +1,4 @@
-MODULES += http curl utils list zargv
+MODULES += http curl utils list zargv bag
 
 ZZ ?= $(shell which zz)
 

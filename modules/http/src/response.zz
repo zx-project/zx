@@ -3,13 +3,11 @@ using <string.h>::{ strncmp }
 using <stdio.h>::{ printf }
 
 using zxcurl::{ Context as CURLContext }
-using zxlist::{ List }
 using pool::{ Pool }
 using err::{ assert }
 
 using zxutils as utils
 using zxcurl as curl
-using zxlist
 using pool
 
 using header::{ Header, make as make_header }

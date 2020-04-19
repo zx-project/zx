@@ -2,12 +2,12 @@ using <stddef.h>::{ double as double_t, float as float_t }
 using <ctype.h>::{ isdigit }
 
 using zxutils as utils
-using zxlist as list
 using argument
+using list
 using pool
 
 using argument::{ ArgumentOptions, Argument }
-using zxlist::{ List }
+using list::{ List }
 using pool::{ Pool }
 using err::{ assert }
 
