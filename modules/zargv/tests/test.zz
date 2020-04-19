@@ -1,12 +1,11 @@
 using <stddef.h>::{ float, double }
 using <assert.h>::{ assert }
-using <stdio.h>::{ printf }
 
 using zxutils as utils
-
-using zargv::{ ArgumentOptions }
-using zargv::argument::{ STRING, INT, FLOAT, DOUBLE, BOOL }
 using zargv
+
+using zargv::argument::{ STRING, INT, FLOAT, DOUBLE, BOOL }
+using zargv::{ ArgumentOptions }
 
 struct Model {
   // scalars
@@ -40,7 +39,6 @@ struct Model {
 }
 
 fn main() -> int {
-  char * mut f[3] = {0};
   let mut actual = Model {
     i: 0,
     b: false,
@@ -121,7 +119,8 @@ fn main() -> int {
     "z",
   };
 
-  new args = zargv::parser();
+  // `4096` bytes for zargv parser pool
+  new+4096 args = zargv::parser();
 
   args.int(&actual.i, ArgumentOptions { name: "i" });
   args.bool(&actual.b, ArgumentOptions { name: "b" });

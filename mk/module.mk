@@ -16,6 +16,9 @@ build:
 clean:
 	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) clean
 
+check:
+	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) check
+
 test:
 	ZZ_MODULE_PATHS=$(ZZ_MODULE_PATHS) $(ZZ) test $(TEST)
 

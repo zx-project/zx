@@ -1,37 +1,36 @@
 using <stddef.h>::{ double as double_t, float as float_t }
 using <ctype.h>::{ isdigit }
-using <stdio.h>::{ printf }
-
-using zxlist::{ List, make as make_list }
-using pool::{ Pool, make as make_pool }
-using err::{ assert }
 
 using zxutils as utils
+using zxlist as list
+using argument
 using pool
 
-using argument::{ Argument, ArgumentOptions, make as make_argument }
-using argument
+using argument::{ ArgumentOptions, Argument }
+using zxlist::{ List }
+using pool::{ Pool }
+using err::{ assert }
 
 /**
  * A container for parser state.
  */
-export struct Parser {
-  Pool+4096 mut pool;
+export struct Parser+ {
   List+128 mut args;
+  Pool+ mut pool;
 }
 
 /**
  * Initializes a new `Parser`.
  * @constructor
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  */
-export fn make(Parser new mut *self)
+export fn make(Parser+L new mut *self)
   model safe(self)
   model pool::continuous(self->pool)
 {
-  make_pool(&self->pool, sizeof(Argument));
-  make_list(&self->args);
+  pool::make(&self->pool, sizeof(Argument));
+  list::make(&self->args);
 }
 
 /**
@@ -40,7 +39,7 @@ export fn make(Parser new mut *self)
  * @private
  */
 fn create_argument(
-  Parser mut *self,
+  Parser+L mut *self,
   void *mut ptr,
   ArgumentOptions options
 ) -> Argument *
@@ -53,7 +52,7 @@ fn create_argument(
   let arg = (Argument mut *) self->pool.alloc();
   if 0 != arg {
     static_attest(safe(arg));
-    make_argument(arg, (void *) ptr, options);
+    argument::make(arg, (void *) ptr, options);
     self->args.push(arg);
   }
   return arg;
@@ -62,12 +61,12 @@ fn create_argument(
 /**
  * Creates an `int` argument from pointer and options.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   int mut i;
  *   args.int(&i, ArgumentOptions { name: "i" });
  *   args.parse(argv, argc);
  */
-export fn int(Parser mut *self, int * mut ptr, ArgumentOptions options) -> Argument *
+export fn int(Parser+L mut *self, int * mut ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -82,12 +81,12 @@ export fn int(Parser mut *self, int * mut ptr, ArgumentOptions options) -> Argum
 /**
  * Creates an `uint` argument from pointer and options.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   u8 mut i;
  *   args.uint(&i, ArgumentOptions { name: "i" });
  *   args.parse(argv, argc);
  */
-export fn uint(Parser mut *self, u32 * mut ptr, ArgumentOptions options) -> Argument *
+export fn uint(Parser+L mut *self, u32 * mut ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -102,12 +101,12 @@ export fn uint(Parser mut *self, u32 * mut ptr, ArgumentOptions options) -> Argu
 /**
  * Creates an `float` argument from pointer and options.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   float mut f;
  *   args.float(&f, ArgumentOptions { name: "f" });
  *   args.parse(argv, argc);
  */
-export fn float(Parser mut *self, float_t * mut ptr, ArgumentOptions options) -> Argument *
+export fn float(Parser+L mut *self, float_t * mut ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -122,12 +121,12 @@ export fn float(Parser mut *self, float_t * mut ptr, ArgumentOptions options) ->
 /**
  * Creates an `double` argument from pointer and options.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   double mut d;
  *   args.double(&f, ArgumentOptions { name: "d" });
  *   args.parse(argv, argc);
  */
-export fn double(Parser mut *self, double_t * mut ptr, ArgumentOptions options) -> Argument *
+export fn double(Parser+L mut *self, double_t * mut ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -142,12 +141,12 @@ export fn double(Parser mut *self, double_t * mut ptr, ArgumentOptions options) 
 /**
  * Creates an `bool` argument from pointer and options.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   bool mut b;
  *   args.bool(&b, ArgumentOptions { name: "b" });
  *   args.parse(argv, argc);
  */
-export fn bool(Parser mut *self, bool * mut ptr, ArgumentOptions options) -> Argument *
+export fn bool(Parser+L mut *self, bool * mut ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -162,12 +161,12 @@ export fn bool(Parser mut *self, bool * mut ptr, ArgumentOptions options) -> Arg
 /**
  * Creates an `string` argument from pointer and options.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   char mut *s;
  *   args.bool(&s, ArgumentOptions { name: "s" });
  *   args.parse(argv, argc);
  */
-export fn string(Parser mut *self, char ** mut ptr, ArgumentOptions options) -> Argument *
+export fn string(Parser+L mut *self, char ** mut ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -184,12 +183,12 @@ export fn string(Parser mut *self, char ** mut ptr, ArgumentOptions options) -> 
  * to add to this array must be given with `options.max`. A type must be
  * specified otherwise a string type is assumed.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   char mut *s[3];
  *   args.array(&s, ArgumentOptions { max: 3, type:: zargv::String, name: "s" });
  *   args.parse(argv, argc);
  */
-export fn array(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
+export fn array(Parser+L mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -213,12 +212,12 @@ export fn array(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Arg
  * assumes a pointer to a `char *[]` array that can hold at least `options.max`
  * items.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   char mut *rest[3];
  *   args.rest(&s, ArgumentOptions { max: 3 });
  *   args.parse(argv, argc);
  */
-export fn rest(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
+export fn rest(Parser+L mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -236,12 +235,12 @@ export fn rest(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Argu
  * Creates a container for unknown arguments to be mapped to. A given pointer
  * must be large enough to hold `options.max` unknown arguments.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   char * mut unknown[3]; // max 3 unknown arguments
  *   args.rest(unknown, ArgumentOptions { max: 3 });
  *   args.parse(argv, argc);
  */
-export fn unknown(Parser mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
+export fn unknown(Parser+L mut *self, void mut *ptr, ArgumentOptions options) -> Argument *
   model safe(self)
   model safe(return)
   model pool::continuous(self->pool)
@@ -259,13 +258,14 @@ export fn unknown(Parser mut *self, void mut *ptr, ArgumentOptions options) -> A
  * Parses `argc` arguments in `char **argv` mapping values to argument pointers
  * specified by the various argument schema functions.
  * @example
- *   new args = zargv::parser();
+ *   new+4096 = zargv::parser();
  *   args.parse(argv, argc);
  */
-export fn parse(Parser mut *self, char **argv, int argc)
+export fn parse(Parser+L mut *self, char **argv, int argc)
+  where pool::continuous(self->pool)
   where (usize) argc <= len(argv)
 {
-  new+32 mut unknown_args = make_list();
+  new+32 mut unknown_args = list::make();
   bool mut restargs = false;
   let arglist = self->args;
 
