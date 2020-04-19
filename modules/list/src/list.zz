@@ -679,7 +679,7 @@ export fn unshift_node(List+L mut *self, Node mut *node) -> Node *
  *   l.push("world");
  *   l.slice(values, 0, 2);
  */
-export fn slice(List+L mut *self, void * mut *out, usize offset, usize count) -> usize
+export fn slice(List+L *self, void * mut *out, usize offset, usize count) -> usize
   where safe(out)
   where len(out) >= count
 {
