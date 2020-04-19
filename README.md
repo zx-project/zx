@@ -11,7 +11,7 @@ In your project's `zz.toml` file:
 
 ```toml
 [repos]
-zx = "https://github.com/zx-project/zx.git"
+zx = "git@github.com:zx-project/zx.git"
 ```
 
 ## Modules
